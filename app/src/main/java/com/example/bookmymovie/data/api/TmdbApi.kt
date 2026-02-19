@@ -13,6 +13,12 @@ interface TmdbApi {
         @Query("page") page: Int = 1
     ): TmdbMovieListResponse
 
+    @GET("trending/movie/day")
+    suspend fun getTrendingDay(
+        @Query("api_key") apiKey: String,
+        @Query("language") language: String = "en-US"
+    ): TmdbMovieListResponse
+
     @GET("movie/upcoming")
     suspend fun getUpcoming(
         @Query("api_key") apiKey: String,

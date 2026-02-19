@@ -11,6 +11,9 @@ import kotlinx.coroutines.launch
 
 class MovieViewModel : ViewModel() {
 
+    var selectedCity by mutableStateOf("Mumbai")
+    var cityLoaded by mutableStateOf(false)
+
     var nowPlayingMovies by mutableStateOf<List<Movie>>(emptyList())
         private set
 
@@ -38,7 +41,7 @@ class MovieViewModel : ViewModel() {
             isLoading = true
             errorMessage = null
             try {
-                val nowPlaying = MovieRepository.fetchNowPlaying()
+                val nowPlaying = MovieRepository.fetchTrendingDay()
                 val upcoming = MovieRepository.fetchUpcoming()
                 val popular = MovieRepository.fetchPopular()
                 val topRated = MovieRepository.fetchTopRated()

@@ -36,6 +36,12 @@ object MovieRepository {
         return response.results.map { it.toMovie() }
     }
 
+    suspend fun fetchTrendingDay(): List<Movie> {
+        loadGenres()
+        val response = api.getTrendingDay(API_KEY)
+        return response.results.map { it.toMovie() }
+    }
+
     suspend fun fetchUpcoming(): List<Movie> {
         loadGenres()
         val response = api.getUpcoming(API_KEY)
