@@ -31,6 +31,8 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.bookmymovie.navigation.Screen
 import com.example.bookmymovie.ui.theme.*
+import com.example.bookmymovie.ui.viewmodel.CityMovieViewModel
+import com.example.bookmymovie.ui.viewmodel.LocationViewModel
 import com.example.bookmymovie.ui.viewmodel.MovieViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
@@ -42,7 +44,12 @@ import kotlinx.coroutines.yield
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = viewModel()) {
+fun HomeScreen(
+    navController: NavController,
+    movieViewModel: MovieViewModel = viewModel(),
+    locationViewModel: LocationViewModel = viewModel(),
+    cityMovieViewModel: CityMovieViewModel = viewModel()
+) {
     var selectedItem by remember { mutableIntStateOf(0) }
     val items = listOf("Home", "Movies", "Offers", "Profile")
     val icons = listOf(Icons.Default.Home, Icons.Default.PlayArrow, Icons.Default.Star, Icons.Default.Person)
@@ -51,20 +58,31 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
     val userId = auth.currentUser?.uid ?: ""
     val database = FirebaseDatabase.getInstance().getReference("users").child(userId)
 
-    var userCity by remember { mutableStateOf("Loading...") }
+    // Use LocationViewModel's city instead of independent state
+    val selectedCity = locationViewModel.selectedCity
     var isMenuExpanded by remember { mutableStateOf(false) }
-    val cities = listOf("Mumbai", "Delhi", "Bangalore", "Hyderabad", "Ahmedabad", "Chennai", "Kolkata", "Pune")
+    val cities = locationViewModel.supportedCities
 
+    // Load city from Firebase if no city selected
     LaunchedEffect(userId) {
-        database.child("city").addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val city = snapshot.getValue(String::class.java)
-                if (city != null) {
-                    userCity = city
+        if (selectedCity == null) {
+            database.child("city").addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val city = snapshot.getValue(String::class.java)
+                    if (city != null && city in cities) {
+                        locationViewModel.selectCity(city)
+                    }
                 }
-            }
-            override fun onCancelled(error: DatabaseError) {}
-        })
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        }
+    }
+
+    // Load city data when city changes
+    LaunchedEffect(selectedCity) {
+        selectedCity?.let { city ->
+            cityMovieViewModel.loadDataForCity(city)
+        }
     }
 
     Scaffold(
@@ -74,8 +92,15 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
                     Box {
                         Column(modifier = Modifier.clickable { isMenuExpanded = true }) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Filled.LocationOn,
+                                    contentDescription = null,
+                                    tint = PrimaryAccent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    userCity,
+                                    selectedCity ?: "Select City",
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimary
@@ -88,7 +113,8 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
                                 )
                             }
                             Text(
-                                "Select City",
+                                if (locationViewModel.locationMethod == "gps") "Via GPS"
+                                else "Tap to change",
                                 fontSize = 11.sp,
                                 color = TextSecondary
                             )
@@ -98,13 +124,49 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
                             onDismissRequest = { isMenuExpanded = false },
                             modifier = Modifier.background(CardBackground)
                         ) {
+                            // GPS detect option
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Filled.MyLocation,
+                                            contentDescription = null,
+                                            tint = PrimaryAccent,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Detect via GPS", color = PrimaryAccent, fontWeight = FontWeight.SemiBold)
+                                    }
+                                },
+                                onClick = {
+                                    isMenuExpanded = false
+                                    locationViewModel.detectCityFromGPS()
+                                }
+                            )
+                            HorizontalDivider(color = DividerColor)
                             cities.forEach { city ->
                                 DropdownMenuItem(
-                                    text = { Text(city, color = TextPrimary) },
+                                    text = {
+                                        Text(
+                                            city,
+                                            color = if (city == selectedCity) PrimaryAccent else TextPrimary,
+                                            fontWeight = if (city == selectedCity) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
                                     onClick = {
-                                        userCity = city
+                                        locationViewModel.selectCity(city)
                                         isMenuExpanded = false
                                         database.child("city").setValue(city)
+                                    },
+                                    trailingIcon = {
+                                        if (city == selectedCity) {
+                                            Icon(
+                                                Icons.Filled.CheckCircle,
+                                                contentDescription = null,
+                                                tint = PrimaryAccent,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
                                 )
                             }
@@ -186,6 +248,116 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
+            // ─── LOCATION-BASED: Banner Carousel (Top 5) ─────
+            if (cityMovieViewModel.bannerMovies.isNotEmpty()) {
+                MovieBannerCarousel(
+                    movies = cityMovieViewModel.bannerMovies,
+                    onMovieClick = { movieId ->
+                        navController.navigate(Screen.MovieDetail.createRoute(movieId))
+                    }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // ─── LOCATION-BASED: Now Showing ─────────────────
+            if (cityMovieViewModel.nowShowingMovies.isNotEmpty()) {
+                NowShowingRow(
+                    movies = cityMovieViewModel.nowShowingMovies,
+                    onMovieClick = { movieId ->
+                        navController.navigate(Screen.MovieDetail.createRoute(movieId))
+                    }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // ─── LOCATION-BASED: New Releases ────────────────
+            if (cityMovieViewModel.newReleases.isNotEmpty()) {
+                NewReleasesRow(
+                    movies = cityMovieViewModel.newReleases,
+                    onMovieClick = { movieId ->
+                        navController.navigate(Screen.MovieDetail.createRoute(movieId))
+                    }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // ─── LOCATION-BASED: Trending ────────────────────
+            if (cityMovieViewModel.trendingMovies.isNotEmpty() && selectedCity != null) {
+                TrendingRow(
+                    movies = cityMovieViewModel.trendingMovies,
+                    city = selectedCity,
+                    onMovieClick = { movieId ->
+                        navController.navigate(Screen.MovieDetail.createRoute(movieId))
+                    }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // ─── LOCATION-BASED: Nearby Theatres ─────────────
+            if (cityMovieViewModel.nearbyTheatres.isNotEmpty() && selectedCity != null) {
+                NearbyTheatresRow(
+                    theatres = cityMovieViewModel.nearbyTheatres,
+                    onTheatreClick = { theatreId ->
+                        navController.navigate(
+                            Screen.TheatreDetail.createRoute(selectedCity, theatreId)
+                        )
+                    },
+                    onSeeAllClick = {
+                        navController.navigate(Screen.TheatreList.createRoute(selectedCity))
+                    }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // ─── LOCATION-BASED: Recommended For You ─────────
+            if (cityMovieViewModel.recommendedMovies.isNotEmpty()) {
+                RecommendedRow(
+                    movies = cityMovieViewModel.recommendedMovies,
+                    onMovieClick = { movieId ->
+                        navController.navigate(Screen.MovieDetail.createRoute(movieId))
+                    }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // ─── Loading / Error State for City Movies ───────
+            if (cityMovieViewModel.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = PrimaryAccent, modifier = Modifier.size(32.dp))
+                }
+            }
+            cityMovieViewModel.errorMessage?.let { error ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(error, color = TextSecondary, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(onClick = { cityMovieViewModel.refresh() }) {
+                            Text("Retry", color = PrimaryAccent)
+                        }
+                    }
+                }
+            }
+
+            // ─── Divider between local and TMDB sections ─────
+            if (cityMovieViewModel.allCityMovies.isNotEmpty()) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = DividerColor,
+                    thickness = 1.dp
+                )
+            }
+
+            // ─── TMDB-BASED SECTIONS (existing) ──────────────
             if (movieViewModel.isLoading) {
                 Box(
                     modifier = Modifier
@@ -219,8 +391,11 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
                     }
                 }
             } else {
-                BannerCarousel(movieViewModel.nowPlayingMovies, navController)
-                Spacer(modifier = Modifier.height(28.dp))
+                // Only show TMDB banner if no local banner movies
+                if (cityMovieViewModel.bannerMovies.isEmpty()) {
+                    BannerCarousel(movieViewModel.nowPlayingMovies, navController)
+                    Spacer(modifier = Modifier.height(28.dp))
+                }
                 MovieSection("Now Showing", movieViewModel.nowPlayingMovies, navController)
                 Spacer(modifier = Modifier.height(28.dp))
                 ComingSoonSection("Coming Soon", movieViewModel.upcomingMovies, navController)

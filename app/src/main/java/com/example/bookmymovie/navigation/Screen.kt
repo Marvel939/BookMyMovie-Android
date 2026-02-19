@@ -19,4 +19,11 @@ sealed class Screen(val route: String) {
     object WishlistDetail : Screen("wishlist_detail/{wishlistId}") {
         fun createRoute(wishlistId: String) = "wishlist_detail/$wishlistId"
     }
+    object CitySelection : Screen("city_selection")
+    object TheatreList : Screen("theatre_list/{city}") {
+        fun createRoute(city: String) = "theatre_list/$city"
+    }
+    object TheatreDetail : Screen("theatre_detail/{city}/{theatreId}") {
+        fun createRoute(city: String, theatreId: String) = "theatre_detail/$city/$theatreId"
+    }
 }
