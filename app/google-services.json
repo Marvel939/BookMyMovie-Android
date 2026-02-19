@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "198210369844",
+    "firebase_url": "https://bookmymovie393-default-rtdb.firebaseio.com",
+    "project_id": "bookmymovie393",
+    "storage_bucket": "bookmymovie393.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:198210369844:android:9ce27a04154f0ec6a04d61",
+        "android_client_info": {
+          "package_name": "com.example.bookmymovie"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBfOGh2kNZbvd6HSNEm5OTy35sgyDE4obY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
