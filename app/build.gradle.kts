@@ -72,6 +72,8 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp.logging)
+    implementation(libs.play.services.location)
+    implementation(libs.accompanist.pager.indicators)
 
 
     testImplementation(libs.junit)
