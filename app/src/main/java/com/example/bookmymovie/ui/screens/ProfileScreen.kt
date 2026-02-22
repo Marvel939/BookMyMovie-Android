@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ fun ProfileScreen(navController: NavController) {
     var user by remember { mutableStateOf<User?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isUploading by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -169,6 +171,17 @@ fun ProfileScreen(navController: NavController) {
         },
         containerColor = DeepCharcoal
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                database.get().addOnSuccessListener { snapshot ->
+                    user = snapshot.getValue(User::class.java)
+                    isRefreshing = false
+                }.addOnFailureListener { isRefreshing = false }
+            },
+            modifier = Modifier.padding(padding)
+        ) {
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = PrimaryAccent)
@@ -176,7 +189,6 @@ fun ProfileScreen(navController: NavController) {
         } else {
             Column(
                 modifier = Modifier
-                    .padding(padding)
                     .fillMaxSize()
                     .padding(24.dp)
                     .verticalScroll(rememberScrollState()),
@@ -405,6 +417,7 @@ fun ProfileScreen(navController: NavController) {
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
+        }
         }
     }
 }
