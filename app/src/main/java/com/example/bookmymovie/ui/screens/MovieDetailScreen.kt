@@ -38,6 +38,9 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.bookmymovie.MainActivity
+import com.example.bookmymovie.ui.viewmodel.NearbyTheatresViewModel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
@@ -53,6 +56,21 @@ fun MovieDetailScreen(navController: NavController, movieId: String?) {
     var isLoading by remember { mutableStateOf(true) }
     var showWishlistDialog by remember { mutableStateOf(false) }
     var showAddReviewDialog by remember { mutableStateOf(false) }
+    var showTheatresSheet by remember { mutableStateOf(false) }
+    // Reopen theatres sheet automatically when returning from CinemaDetailScreen
+    val _sheetSsh = navController.currentBackStackEntry?.savedStateHandle
+    val _showSheetResult by (_sheetSsh
+        ?.getStateFlow("show_theatres_sheet", false)
+        ?.collectAsState() ?: remember { mutableStateOf(false) })
+    LaunchedEffect(_showSheetResult) {
+        if (_showSheetResult) {
+            showTheatresSheet = true
+            _sheetSsh?.set("show_theatres_sheet", false)
+        }
+    }
+    // Scoped to the Activity so it shares data fetched in MainActivity
+    val nearbyTheatresViewModel: NearbyTheatresViewModel =
+        viewModel(LocalContext.current as MainActivity)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -729,7 +747,7 @@ fun MovieDetailScreen(navController: NavController, movieId: String?) {
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Button(
-                onClick = { /* Implement Booking Logic */ },
+                onClick = { showTheatresSheet = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -828,6 +846,17 @@ fun MovieDetailScreen(navController: NavController, movieId: String?) {
                     }
                 }
                 showAddReviewDialog = false
+            }
+        )
+    }
+
+    if (showTheatresSheet) {
+        NearbyTheatresBottomSheet(
+            viewModel = nearbyTheatresViewModel,
+            onDismiss = { showTheatresSheet = false },
+            onTheatreClick = { placeId ->
+                showTheatresSheet = false
+                navController.navigate(Screen.CinemaDetail.createRoute(placeId))
             }
         )
     }

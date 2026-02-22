@@ -62,5 +62,12 @@ fun NavGraph(navController: NavHostController) {
             val wishlistId = backStackEntry.arguments?.getString("wishlistId")
             WishlistScreen(navController, wishlistId)
         }
+        composable(
+            route = Screen.CinemaDetail.route,
+            arguments = listOf(navArgument("placeId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val placeId = backStackEntry.arguments?.getString("placeId")
+            CinemaDetailScreen(navController, placeId)
+        }
     }
 }

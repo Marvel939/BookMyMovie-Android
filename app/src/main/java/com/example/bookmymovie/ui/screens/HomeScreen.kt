@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,10 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
+import com.example.bookmymovie.MainActivity
 import com.example.bookmymovie.navigation.Screen
 import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.MovieViewModel
+import com.example.bookmymovie.ui.viewmodel.NearbyTheatresViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -42,7 +46,12 @@ import kotlinx.coroutines.yield
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = viewModel()) {
+fun HomeScreen(
+    navController: NavController,
+    movieViewModel: MovieViewModel = viewModel()
+) {
+    val nearbyTheatresViewModel: NearbyTheatresViewModel =
+        viewModel(LocalContext.current as MainActivity)
     var selectedItem by remember { mutableIntStateOf(0) }
     val items = listOf("Home", "Movies", "Offers", "Profile")
     val icons = listOf(Icons.Default.Home, Icons.Default.PlayArrow, Icons.Default.Star, Icons.Default.Person)
@@ -105,6 +114,7 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
                                         userCity = city
                                         isMenuExpanded = false
                                         database.child("city").setValue(city)
+                                        nearbyTheatresViewModel.filterTheatresByCity(city)
                                     }
                                 )
                             }
@@ -181,9 +191,14 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
         },
         containerColor = DeepCharcoal
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = movieViewModel.isLoading,
+            onRefresh = { movieViewModel.loadMovies() },
+            modifier = Modifier.padding(padding)
+        ) {
         Column(
             modifier = Modifier
-                .padding(padding)
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
             if (movieViewModel.isLoading) {
@@ -230,6 +245,7 @@ fun HomeScreen(navController: NavController, movieViewModel: MovieViewModel = vi
                 MovieSection("Top Rated", movieViewModel.topRatedMovies, navController)
                 Spacer(modifier = Modifier.height(20.dp))
             }
+        }
         }
     }
 }
