@@ -29,4 +29,18 @@ sealed class Screen(val route: String) {
     object CinemaDetail : Screen("cinema_detail/{placeId}") {
         fun createRoute(placeId: String) = "cinema_detail/$placeId"
     }
+    object ShowtimeSelection : Screen("showtime_selection/{placeId}") {
+        fun createRoute(placeId: String) = "showtime_selection/$placeId"
+    }
+    object SeatSelection : Screen("seat_selection")
+    object FoodBeverage : Screen("food_beverage")
+    object BookingSummary : Screen("booking_summary")
+    object BookingConfirmation : Screen("booking_confirmation")
+    object MyBookings : Screen("my_bookings")
+    object AdminPanel : Screen("admin_panel")
+    object AdminAuth : Screen("admin_auth")
+    object TheatreOwnerAuth : Screen("theatre_owner_auth")
+    object TheatreOwnerPanel : Screen("theatre_owner_panel")
+    object OwnerSchedule : Screen("owner_schedule")
+    object AdminRequests : Screen("admin_requests")
 }

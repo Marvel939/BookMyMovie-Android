@@ -74,6 +74,9 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.play.services.location)
     implementation(libs.accompanist.pager.indicators)
+    implementation("com.stripe:stripe-android:20.40.0")
+    implementation("com.google.firebase:firebase-functions-ktx:20.4.0")
+    implementation("com.google.zxing:core:3.5.3")
 
 
     testImplementation(libs.junit)

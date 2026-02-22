@@ -14,6 +14,11 @@ val DividerColor = Color(0xFF2A2A32)
 val SurfaceDark = Color(0xFF1A1A20)
 val StarYellow = Color(0xFFFFD700)
 
+// Seat type colours
+val SilverSeat   = Color(0xFF7A8FA6)
+val GoldSeat     = Color(0xFFD4A017)
+val PlatinumSeat = Color(0xFF8A5CF6)
+
 // Backward compat aliases
 val BookmyMovieRed = PrimaryAccent
 val BookmyMovieBlack = DeepCharcoal

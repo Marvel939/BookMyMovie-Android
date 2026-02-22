@@ -34,7 +34,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.bookmymovie.MainActivity
+import com.example.bookmymovie.navigation.Screen
 import com.example.bookmymovie.ui.theme.*
+import com.example.bookmymovie.ui.viewmodel.BookingViewModel
 import com.example.bookmymovie.ui.viewmodel.PLACES_API_KEY
 import com.example.bookmymovie.ui.viewmodel.NearbyTheatresViewModel
 
@@ -44,6 +46,7 @@ fun CinemaDetailScreen(navController: NavController, placeId: String?) {
     val context = LocalContext.current
     val nearbyTheatresViewModel: NearbyTheatresViewModel =
         viewModel(context as MainActivity)
+    val bookingViewModel: BookingViewModel = viewModel(context as MainActivity)
 
     val theatre = remember(placeId) {
         nearbyTheatresViewModel.getTheatreByPlaceId(placeId ?: "")
@@ -328,7 +331,12 @@ fun CinemaDetailScreen(navController: NavController, placeId: String?) {
 
                 // ── BOOK TICKETS ───────────────────────────────────────────────
                 Button(
-                    onClick = { /* Booking flow */ },
+                    onClick = {
+                        bookingViewModel.currentCinemaName = theatre.name
+                        bookingViewModel.currentCinemaAddress = theatre.address
+                        bookingViewModel.currentPlaceId = theatre.placeId
+                        navController.navigate(Screen.ShowtimeSelection.createRoute(theatre.placeId))
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent),

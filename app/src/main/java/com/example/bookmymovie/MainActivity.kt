@@ -29,6 +29,7 @@ import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import java.util.Locale
+import com.stripe.android.PaymentConfiguration
 
 class MainActivity : ComponentActivity() {
 
@@ -61,6 +62,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         checkNotificationPermission()
         checkLocationPermission()
+        PaymentConfiguration.init(
+            applicationContext,
+            "pk_test_51T3gkqJBhecJmqSTHtt1Dbbv3fr0b1FB25k2aBX91IMRseJJw8jUkNSfxsJtB3fZQZ3EhWSPbtevbkwIh3V4dxGD00JUa3lC1G"  // ← paste your key here
+        )
         setContent {
             BookmyMovieTheme {
                 Surface(

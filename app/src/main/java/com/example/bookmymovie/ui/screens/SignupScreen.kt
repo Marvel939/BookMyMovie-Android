@@ -491,6 +491,37 @@ fun SignupScreen(navController: NavController) {
                 }
             )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row {
+            Text("Are you an Admin? ", color = TextSecondary, fontSize = 14.sp)
+            Text(
+                "Admin Register",
+                color = PrimaryAccent,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                modifier = Modifier.clickable {
+                    navController.navigate(Screen.AdminAuth.route)
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row {
+            Text("Theatre Owner? ", color = TextSecondary, fontSize = 14.sp)
+            Text(
+                "Register as Owner",
+                color = PrimaryAccent,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                modifier = Modifier.clickable {
+                    navController.navigate(Screen.TheatreOwnerAuth.route)
+                }
+            )
+        }
+
         Spacer(modifier = Modifier.height(20.dp))
     }
 }

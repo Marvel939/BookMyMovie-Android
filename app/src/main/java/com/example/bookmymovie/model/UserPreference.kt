@@ -27,7 +27,7 @@ data class UserPreference(
  * Represents a single booking record.
  * Maps to: users/{userId}/bookings/{bookingId}
  */
-data class Booking(
+data class BookingRecord(
     val bookingId: String = "",
     val movieId: String = "",
     val movieTitle: String = "",

@@ -1,6 +1,6 @@
 package com.example.bookmymovie.firebase
 
-import com.example.bookmymovie.model.Booking
+import com.example.bookmymovie.model.BookingRecord
 import com.example.bookmymovie.model.UserPreference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
@@ -31,7 +31,7 @@ object UserRepository {
     /**
      * Save a new booking and update genre preferences automatically.
      */
-    suspend fun saveBooking(booking: Booking): Result<String> {
+    suspend fun saveBooking(booking: BookingRecord): Result<String> {
         val userId = currentUserId() ?: return Result.failure(Exception("User not logged in"))
         return try {
             val bookingRef = usersRef.child(userId).child("bookings").push()
@@ -56,14 +56,14 @@ object UserRepository {
     /**
      * Fetch all bookings for current user.
      */
-    suspend fun getBookings(): List<Booking> {
+    suspend fun getBookings(): List<BookingRecord> {
         val userId = currentUserId() ?: return emptyList()
         return suspendCancellableCoroutine { cont ->
             usersRef.child(userId).child("bookings")
                 .addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(snapshot: DataSnapshot) {
                         val bookings = snapshot.children.mapNotNull { child ->
-                            child.getValue(Booking::class.java)
+                            child.getValue(BookingRecord::class.java)
                         }
                         cont.resume(bookings)
                     }
@@ -78,7 +78,7 @@ object UserRepository {
     /**
      * Observe bookings in real-time.
      */
-    fun observeBookings(): Flow<List<Booking>> = callbackFlow {
+    fun observeBookings(): Flow<List<BookingRecord>> = callbackFlow {
         val userId = currentUserId()
         if (userId == null) {
             trySend(emptyList())
@@ -89,7 +89,7 @@ object UserRepository {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val bookings = snapshot.children.mapNotNull { child ->
-                    child.getValue(Booking::class.java)
+                    child.getValue(BookingRecord::class.java)
                 }
                 trySend(bookings)
             }

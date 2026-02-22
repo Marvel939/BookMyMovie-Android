@@ -1,15 +1,22 @@
 package com.example.bookmymovie.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.bookmymovie.MainActivity
 import com.example.bookmymovie.ui.screens.*
+import com.example.bookmymovie.ui.viewmodel.BookingViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
+    val context = LocalContext.current
+    val bookingViewModel: BookingViewModel = viewModel(context as MainActivity)
+
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
@@ -69,5 +76,47 @@ fun NavGraph(navController: NavHostController) {
             val placeId = backStackEntry.arguments?.getString("placeId")
             CinemaDetailScreen(navController, placeId)
         }
+        // ── Booking Flow ──────────────────────────────────────────────────────
+        composable(
+            route = Screen.ShowtimeSelection.route,
+            arguments = listOf(navArgument("placeId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val placeId = backStackEntry.arguments?.getString("placeId")
+            ShowtimeSelectionScreen(navController, placeId, bookingViewModel)
+        }
+        composable(Screen.SeatSelection.route) {
+            SeatSelectionScreen(navController, bookingViewModel)
+        }
+        composable(Screen.FoodBeverage.route) {
+            FoodBeverageScreen(navController, bookingViewModel)
+        }
+        composable(Screen.BookingSummary.route) {
+            BookingSummaryScreen(navController, bookingViewModel)
+        }
+        composable(Screen.BookingConfirmation.route) {
+            BookingConfirmationScreen(navController, bookingViewModel)
+        }
+        composable(Screen.MyBookings.route) {
+            MyBookingsScreen(navController, bookingViewModel)
+        }
+        composable(Screen.AdminPanel.route) {
+            AdminPanelScreen(navController, bookingViewModel)
+        }
+        composable(Screen.AdminAuth.route) {
+            AdminAuthScreen(navController)
+        }
+        composable(Screen.TheatreOwnerAuth.route) {
+            TheatreOwnerAuthScreen(navController)
+        }
+        composable(Screen.TheatreOwnerPanel.route) {
+            TheatreOwnerPanelScreen(navController)
+        }
+        composable(Screen.OwnerSchedule.route) {
+            OwnerScheduleScreen(navController)
+        }
+        composable(Screen.AdminRequests.route) {
+            AdminRequestsScreen(navController)
+        }
     }
 }
+
