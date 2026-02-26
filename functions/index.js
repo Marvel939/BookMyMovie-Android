@@ -3,6 +3,10 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const nodemailer = require("nodemailer");
 const PDFDocument = require("pdfkit");
 const QRCode = require("qrcode");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
+const bucket = admin.storage().bucket("bookmymovie393.firebasestorage.app");
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -189,4 +193,123 @@ exports.sendBookingEmail = onCall(async (request) => {
   }
 
   return { success: true };
+});
+
+// ── Send Booking Confirmation via WhatsApp (with PDF) ─────────────────────────
+exports.sendBookingWhatsApp = onCall(async (request) => {
+  const { phone, booking } = request.data;
+
+  if (!phone || !booking) {
+    throw new Error("Missing phone or booking data");
+  }
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const twilioWhatsAppNumber = process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
+
+  if (!accountSid || !authToken) {
+    console.error("Twilio credentials not configured. SID present:", !!accountSid, "Token present:", !!authToken);
+    throw new Error("Twilio credentials not configured");
+  }
+
+  const twilio = require("twilio")(accountSid, authToken);
+
+  try {
+    const seatsText = Array.isArray(booking.seats)
+      ? booking.seats.join(", ")
+      : booking.seats;
+
+    // 1. Generate QR code buffer
+    const qrBuffer = await QRCode.toBuffer(booking.bookingId, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 300,
+      color: { dark: "#000000", light: "#FFFFFF" },
+    });
+
+    // 2. Generate PDF
+    const pdfBuffer = await generateBookingPdf(booking, qrBuffer);
+
+    // 3. Upload PDF to Firebase Storage and make it public
+    const fileName = `booking_tickets/${booking.bookingId}.pdf`;
+    const file = bucket.file(fileName);
+
+    await file.save(pdfBuffer, {
+      metadata: { contentType: "application/pdf" },
+    });
+
+    // Make file publicly accessible so Twilio can fetch it
+    await file.makePublic();
+    const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+    // 4. Send WhatsApp message with PDF
+    const messageBody =
+      `🎬 *Booking Confirmed!*\n\n` +
+      `*Movie:* ${booking.movieName}\n` +
+      `*Cinema:* ${booking.cinemaName}\n` +
+      `*Screen:* ${booking.screenName} · ${booking.screenType}\n` +
+      `*Date:* ${booking.date}\n` +
+      `*Time:* ${booking.time}\n` +
+      `*Language:* ${booking.language}\n` +
+      `*Seats:* ${seatsText}\n` +
+      `*Total Paid:* ₹${booking.totalAmount}\n\n` +
+      `*Booking ID:* ${booking.bookingId}\n\n` +
+      `Your ticket PDF is attached. Enjoy the movie! 🍿`;
+
+    await twilio.messages.create({
+      from: twilioWhatsAppNumber,
+      to: `whatsapp:${phone}`,
+      body: messageBody,
+      mediaUrl: [pdfUrl],
+    });
+
+    console.log(`WhatsApp booking confirmation with PDF sent to ${phone}`);
+    return { success: true };
+  } catch (error) {
+    console.error("WhatsApp send error:", error.message, error);
+    throw new Error("Failed to send WhatsApp message: " + error.message);
+  }
+});
+
+// ── Send 15-min Show Reminder via WhatsApp ────────────────────────────────────
+exports.sendShowReminderWhatsApp = onCall(async (request) => {
+  const { phone, movieName, showDate, showTime, theaterName, seats } = request.data;
+
+  if (!phone || !movieName) {
+    throw new Error("Missing required reminder data");
+  }
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const twilioWhatsAppNumber = process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
+
+  if (!accountSid || !authToken) {
+    console.error("Twilio credentials not configured");
+    throw new Error("Twilio credentials not configured");
+  }
+
+  const twilio = require("twilio")(accountSid, authToken);
+
+  try {
+    const messageBody =
+      `🎬 *Reminder!*\n\n` +
+      `Your show for *${movieName}* starts in just *15 minutes!*\n\n` +
+      `🏛️ *Theater:* ${theaterName}\n` +
+      `📅 *Date:* ${showDate}\n` +
+      `🕐 *Time:* ${showTime}\n` +
+      `💺 *Seats:* ${seats}\n\n` +
+      `Enjoy the movie! 🍿`;
+
+    await twilio.messages.create({
+      from: twilioWhatsAppNumber,
+      to: `whatsapp:${phone}`,
+      body: messageBody,
+    });
+
+    console.log(`WhatsApp show reminder sent to ${phone}`);
+    return { success: true };
+  } catch (error) {
+    console.error("WhatsApp reminder error:", error.message, error);
+    throw new Error("Failed to send WhatsApp reminder: " + error.message);
+  }
 });

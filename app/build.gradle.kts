@@ -77,6 +77,7 @@ dependencies {
     implementation("com.stripe:stripe-android:20.40.0")
     implementation("com.google.firebase:firebase-functions-ktx:20.4.0")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
 
     testImplementation(libs.junit)

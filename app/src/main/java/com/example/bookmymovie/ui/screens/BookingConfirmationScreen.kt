@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,12 @@ fun BookingConfirmationScreen(
     bookingViewModel: BookingViewModel
 ) {
     val booking = bookingViewModel.confirmedBooking ?: return
+    val context = LocalContext.current
+
+    // Schedule the 15-min reminder once when this screen appears
+    LaunchedEffect(booking.bookingId) {
+        bookingViewModel.scheduleShowReminder(context, booking)
+    }
 
     Scaffold(containerColor = DeepCharcoal) { padding ->
         Column(

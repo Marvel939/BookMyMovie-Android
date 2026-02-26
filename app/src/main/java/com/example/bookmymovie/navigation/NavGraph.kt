@@ -117,6 +117,12 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.AdminRequests.route) {
             AdminRequestsScreen(navController)
         }
+        composable(Screen.PhoneAuth.route) {
+            PhoneAuthScreen(navController)
+        }
+        composable(Screen.EditProfile.route) {
+            EditProfileScreen(navController)
+        }
     }
 }
 

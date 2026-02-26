@@ -1,5 +1,7 @@
 package com.example.bookmymovie.ui.viewmodel
 
+import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +13,7 @@ import com.example.bookmymovie.model.CartFoodItem
 import com.example.bookmymovie.model.FoodItem
 import com.example.bookmymovie.model.SeatData
 import com.example.bookmymovie.model.CinemaShowtime
+import com.example.bookmymovie.services.ReminderScheduler
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -243,6 +246,69 @@ class BookingViewModel : ViewModel() {
             .call(data)
     }
 
+    // ── Send booking confirmation via WhatsApp (Cloud Function) ───────────────
+    private fun sendBookingWhatsApp(booking: Booking) {
+        val uid = booking.userId
+        // Fetch user's phone number from the database, then call cloud function
+        FirebaseDatabase.getInstance().getReference("users").child(uid)
+            .get().addOnSuccessListener { snapshot ->
+                val countryCode = snapshot.child("countryCode").getValue(String::class.java) ?: ""
+                val phone = snapshot.child("phone").getValue(String::class.java) ?: ""
+                val fullPhone = countryCode + phone
+
+                if (fullPhone.isNotEmpty() && fullPhone.startsWith("+")) {
+                    val data = hashMapOf(
+                        "phone" to fullPhone,
+                        "booking" to hashMapOf(
+                            "bookingId"   to booking.bookingId,
+                            "movieName"   to booking.movieName,
+                            "cinemaName"  to booking.cinemaName,
+                            "screenName"  to booking.screenName,
+                            "screenType"  to booking.screenType,
+                            "date"        to booking.date,
+                            "time"        to booking.time,
+                            "language"    to booking.language,
+                            "seats"       to booking.seats,
+                            "totalAmount" to booking.totalAmount
+                        )
+                    )
+                    Firebase.functions
+                        .getHttpsCallable("sendBookingWhatsApp")
+                        .call(data)
+                        .addOnSuccessListener {
+                            Log.d("BookingVM", "WhatsApp booking confirmation sent")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("BookingVM", "WhatsApp send failed: ${e.message}")
+                        }
+                } else {
+                    Log.w("BookingVM", "User has no valid phone number for WhatsApp")
+                }
+            }
+    }
+
+    // ── Schedule 15-min reminder (call from UI with Context) ─────────────────
+    fun scheduleShowReminder(context: Context, booking: Booking) {
+        val uid = booking.userId
+        FirebaseDatabase.getInstance().getReference("users").child(uid)
+            .get().addOnSuccessListener { snapshot ->
+                val countryCode = snapshot.child("countryCode").getValue(String::class.java) ?: ""
+                val phone = snapshot.child("phone").getValue(String::class.java) ?: ""
+                val fullPhone = countryCode + phone
+
+                ReminderScheduler.scheduleShowReminder(
+                    context = context,
+                    movieName = booking.movieName,
+                    showDate = booking.date,
+                    showTime = booking.time,
+                    theaterName = booking.cinemaName,
+                    phoneNumber = if (fullPhone.startsWith("+")) fullPhone else "",
+                    seats = booking.seats.joinToString(", ")
+                )
+                Log.d("BookingVM", "Show reminder scheduled for ${booking.movieName}")
+            }
+    }
+
     // ── Confirm booking & save to Firebase ──────────────────────────────────
     fun confirmBooking(movieId: String, movieName: String, moviePoster: String) {
         val showtime = selectedShowtime ?: return
@@ -322,6 +388,7 @@ class BookingViewModel : ViewModel() {
                         confirmedBooking = booking
                         isCreatingBooking = false
                         sendBookingEmail(booking)
+                        sendBookingWhatsApp(booking)
                         // Reset selection state
                         selectedSeats = emptySet()
                         foodCart.clear()

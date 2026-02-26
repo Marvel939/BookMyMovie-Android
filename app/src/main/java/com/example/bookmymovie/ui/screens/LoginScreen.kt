@@ -201,7 +201,21 @@ fun LoginScreen(navController: NavController) {
             HorizontalDivider(modifier = Modifier.weight(1f), color = DividerColor)
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Login with Phone Number link
+        TextButton(
+            onClick = { navController.navigate(Screen.PhoneAuth.route) }
+        ) {
+            Text(
+                "Login with Phone Number",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = PrimaryAccent
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedButton(
             onClick = {

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
@@ -163,6 +164,9 @@ fun ProfileScreen(navController: NavController) {
                     }
                 },
                 actions = {
+                    IconButton(onClick = { navController.navigate(Screen.EditProfile.route) }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Profile", tint = PrimaryAccent)
+                    }
                     IconButton(onClick = { showLogoutDialog = true }) {
                         Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = PrimaryAccent)
                     }
