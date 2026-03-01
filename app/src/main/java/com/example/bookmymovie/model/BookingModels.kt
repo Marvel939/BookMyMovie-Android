@@ -10,7 +10,9 @@ data class CinemaShowtime(
     val moviePoster: String = "",
     val date: String = "",
     val time: String = "",
-    val language: String = "English"
+    val language: String = "English",
+    val formats: String = "",
+    val formatPrices: Map<String, Map<String, Int>> = emptyMap()
 )
 
 data class SeatData(

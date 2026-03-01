@@ -50,6 +50,10 @@ class BookingViewModel : ViewModel() {
         private set
     val foodCart = mutableStateMapOf<String, Int>() // itemId -> qty
 
+    // ── Format & Language state ─────────────────────────────────────────────
+    var selectedFormat by mutableStateOf("")
+    var selectedLanguage by mutableStateOf("")
+
     // ── Booking state ───────────────────────────────────────────────────────
     var currentPlaceId by mutableStateOf("")
     var currentCinemaName by mutableStateOf("")
@@ -105,6 +109,18 @@ class BookingViewModel : ViewModel() {
                     screenSnap.children.forEach { stSnap ->
                         val stDate = stSnap.child("date").getValue(String::class.java) ?: ""
                         if (stDate == date) {
+                            // Read formatPrices map
+                            val fpMap = mutableMapOf<String, Map<String, Int>>()
+                            stSnap.child("formatPrices").children.forEach { fmtSnap ->
+                                val fmtKey = fmtSnap.key ?: return@forEach
+                                val priceMap = mutableMapOf<String, Int>()
+                                fmtSnap.children.forEach { priceSnap ->
+                                    val typeKey = priceSnap.key ?: return@forEach
+                                    priceMap[typeKey] = (priceSnap.value as? Long)?.toInt() ?: 0
+                                }
+                                fpMap[fmtKey] = priceMap
+                            }
+
                             result.add(
                                 CinemaShowtime(
                                     showtimeId = stSnap.key ?: "",
@@ -116,7 +132,9 @@ class BookingViewModel : ViewModel() {
                                     moviePoster = stSnap.child("moviePoster").getValue(String::class.java) ?: "",
                                     date = stDate,
                                     time = stSnap.child("time").getValue(String::class.java) ?: "",
-                                    language = stSnap.child("language").getValue(String::class.java) ?: "English"
+                                    language = stSnap.child("language").getValue(String::class.java) ?: "English",
+                                    formats = stSnap.child("formats").getValue(String::class.java) ?: "",
+                                    formatPrices = fpMap
                                 )
                             )
                         }
@@ -359,14 +377,14 @@ class BookingViewModel : ViewModel() {
                     cinemaAddress = currentCinemaAddress,
                     screenId = showtime.screenId,
                     screenName = showtime.screenName,
-                    screenType = showtime.screenType,
+                    screenType = selectedFormat.ifBlank { showtime.screenType },
                     showtimeId = showtime.showtimeId,
                     movieId = movieId,
                     movieName = movieName,
                     moviePoster = moviePoster,
                     date = showtime.date,
                     time = showtime.time,
-                    language = showtime.language,
+                    language = selectedLanguage.ifBlank { showtime.language },
                     seats = selectedSeats.toList(),
                     seatTypes = seatTypesMap,
                     seatAmount = seatAmount,
@@ -391,6 +409,8 @@ class BookingViewModel : ViewModel() {
                         sendBookingWhatsApp(booking)
                         // Reset selection state
                         selectedSeats = emptySet()
+                        selectedFormat = ""
+                        selectedLanguage = ""
                         foodCart.clear()
                         selectedShowtime = null
                     }
@@ -586,12 +606,24 @@ class BookingViewModel : ViewModel() {
             })
     }
 
+    // ── Apply format-based pricing to loaded seats ─────────────────────────
+    fun applyFormatPricing() {
+        val showtime = selectedShowtime ?: return
+        val priceMap = showtime.formatPrices[selectedFormat] ?: return
+        seats = seats.mapValues { (_, seat) ->
+            val newPrice = priceMap[seat.type] ?: seat.price
+            seat.copy(price = newPrice)
+        }
+    }
+
     fun resetBookingError() { bookingError = null }
     fun resetAdminMessages() { adminActionSuccess = null; adminActionError = null }
 
     fun clearBookingState() {
         selectedShowtime = null
         selectedSeats = emptySet()
+        selectedFormat = ""
+        selectedLanguage = ""
         foodCart.clear()
         confirmedBooking = null
         bookingError = null

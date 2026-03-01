@@ -43,6 +43,7 @@ private val SHOW_TIMES = listOf(
 )
 
 private val LANGUAGES = listOf("Hindi", "English", "Tamil", "Telugu", "Kannada", "Malayalam", "Bengali", "Marathi")
+private val FORMATS = listOf("2D", "3D", "IMAX", "4DX")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,9 +59,11 @@ fun OwnerScheduleScreen(navController: NavController) {
     var selectedDate by remember { mutableStateOf("") }
     var selectedTime by remember { mutableStateOf("") }
     var selectedLanguage by remember { mutableStateOf(setOf("Hindi")) }
-    var silverPrice by remember { mutableStateOf("150") }
-    var goldPrice by remember { mutableStateOf("250") }
-    var platinumPrice by remember { mutableStateOf("400") }
+    var selectedFormat by remember { mutableStateOf("2D") }
+    // Pricing for the selected format (silver, gold, platinum)
+    var formatPricing by remember {
+        mutableStateOf(Triple("150", "250", "400"))
+    }
     var showMovieSearch by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
 
@@ -240,12 +243,37 @@ fun OwnerScheduleScreen(navController: NavController) {
                 }
             }
 
-            // ── Step 6: Pricing ─────────────────────────────────────────────
-            SectionCard(title = "6. Seat Pricing", icon = Icons.Default.CurrencyRupee) {
+            // ── Step 6: Format ──────────────────────────────────────────────
+            SectionCard(title = "6. Format", icon = Icons.Default.Theaters) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(FORMATS) { fmt ->
+                        FilterChip(
+                            selected = selectedFormat == fmt,
+                            onClick = { selectedFormat = fmt },
+                            label = { Text(fmt, fontSize = 13.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = PrimaryAccent,
+                                selectedLabelColor = Color.White,
+                                containerColor = SecondaryBackground,
+                                labelColor = TextSecondary
+                            )
+                        )
+                    }
+                }
+            }
+
+            // ── Step 7: Pricing ──────────────────────────────────────────────
+            SectionCard(title = "7. $selectedFormat Pricing", icon = Icons.Default.CurrencyRupee) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PriceField("Silver ₹", silverPrice, SilverSeat, Modifier.weight(1f)) { silverPrice = it }
-                    PriceField("Gold ₹", goldPrice, GoldSeat, Modifier.weight(1f)) { goldPrice = it }
-                    PriceField("Platinum ₹", platinumPrice, PlatinumSeat, Modifier.weight(1f)) { platinumPrice = it }
+                    PriceField("Silver ₹", formatPricing.first, SilverSeat, Modifier.weight(1f)) {
+                        formatPricing = formatPricing.copy(first = it)
+                    }
+                    PriceField("Gold ₹", formatPricing.second, GoldSeat, Modifier.weight(1f)) {
+                        formatPricing = formatPricing.copy(second = it)
+                    }
+                    PriceField("Platinum ₹", formatPricing.third, PlatinumSeat, Modifier.weight(1f)) {
+                        formatPricing = formatPricing.copy(third = it)
+                    }
                 }
             }
 
@@ -255,6 +283,7 @@ fun OwnerScheduleScreen(navController: NavController) {
                     selectedDate.isNotBlank() &&
                     selectedTime.isNotBlank() &&
                     selectedLanguage.isNotEmpty() &&
+                    selectedFormat.isNotBlank() &&
                     !conflict.hasConflict
 
             if (isSubmitting) {
@@ -271,6 +300,7 @@ fun OwnerScheduleScreen(navController: NavController) {
                                 selectedDate.isBlank() -> "Please select a date"
                                 selectedTime.isBlank() -> "Please select a time slot"
                                 selectedLanguage.isEmpty() -> "Please select at least one language"
+                                selectedFormat.isBlank() -> "Please select a format"
                                 conflict.hasConflict -> "Please resolve the time conflict first"
                                 else -> "Please fill all fields"
                             }
@@ -278,6 +308,14 @@ fun OwnerScheduleScreen(navController: NavController) {
                             return@Button
                         }
                         isSubmitting = true
+                        // Build format prices map (single format)
+                        val fmtPricesMap = mapOf(
+                            selectedFormat to mapOf(
+                                "silver" to (formatPricing.first.toDoubleOrNull() ?: 150.0).toInt(),
+                                "gold" to (formatPricing.second.toDoubleOrNull() ?: 250.0).toInt(),
+                                "platinum" to (formatPricing.third.toDoubleOrNull() ?: 400.0).toInt()
+                            )
+                        )
                         vm.submitShowtimeRequest(
                             screen = selectedScreen!!,
                             movieId = selectedMovie!!.id.toString(),
@@ -287,9 +325,11 @@ fun OwnerScheduleScreen(navController: NavController) {
                             date = selectedDate,
                             time = selectedTime,
                             language = selectedLanguage.sorted().joinToString(", "),
-                            silverPrice = silverPrice.toDoubleOrNull() ?: 150.0,
-                            goldPrice = goldPrice.toDoubleOrNull() ?: 250.0,
-                            platinumPrice = platinumPrice.toDoubleOrNull() ?: 400.0,
+                            formats = selectedFormat,
+                            formatPricesMap = fmtPricesMap,
+                            silverPrice = formatPricing.first.toDoubleOrNull() ?: 150.0,
+                            goldPrice = formatPricing.second.toDoubleOrNull() ?: 250.0,
+                            platinumPrice = formatPricing.third.toDoubleOrNull() ?: 400.0,
                             onSuccess = {
                                 isSubmitting = false
                                 Toast.makeText(context, "Request submitted for admin approval!", Toast.LENGTH_LONG).show()

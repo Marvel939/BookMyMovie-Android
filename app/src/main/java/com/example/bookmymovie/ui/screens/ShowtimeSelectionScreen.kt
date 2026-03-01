@@ -141,21 +141,83 @@ fun ShowtimeSelectionScreen(
                     }
                 }
                 else -> {
+                    // Group showtimes: same movie + same screen = one card with multiple times
+                    val groupedShowtimes = remember(bookingViewModel.showtimes) {
+                        bookingViewModel.showtimes
+                            .groupBy { "${it.movieId}_${it.screenId}" }
+                            .values.toList()
+                    }
+
                     LazyColumn(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(bookingViewModel.showtimes) { showtime ->
-                            ShowtimeCard(
-                                showtime = showtime,
-                                movieName = showtime.movieName,
-                                onClick = {
-                                    bookingViewModel.selectedShowtime = showtime
+                        items(groupedShowtimes) { group ->
+                            val representative = group.first()
+                            GroupedShowtimeCard(
+                                showtimes = group,
+                                movieName = representative.movieName,
+                                onTimeClick = { selectedShowtime ->
+                                    bookingViewModel.selectedShowtime = selectedShowtime
                                     bookingViewModel.currentPlaceId = safePlace
-                                    navController.navigate(Screen.SeatSelection.route)
+                                    navController.navigate(Screen.FormatLanguage.route)
                                 }
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroupedShowtimeCard(
+    showtimes: List<CinemaShowtime>,
+    movieName: String,
+    onTimeClick: (CinemaShowtime) -> Unit
+) {
+    val representative = showtimes.first()
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = CardBackground,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Movie name and details
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(movieName, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip(representative.screenName)
+                        // Show formats if available, else screenType
+                        val formatsDisplay = representative.formats.ifBlank { representative.screenType }
+                        Chip(formatsDisplay)
+                        Chip(representative.language)
+                    }
+                }
+                // Show min price from formatPrices or fallback
+                val minPrice = if (representative.formatPrices.isNotEmpty()) {
+                    representative.formatPrices.values.flatMap { it.values }.minOrNull() ?: 150
+                } else 150
+                Text("₹$minPrice+", color = TextSecondary, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(12.dp))
+            // Time slots row
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                showtimes.forEach { showtime ->
+                    Box(
+                        modifier = Modifier
+                            .background(PrimaryAccent.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                            .clickable { onTimeClick(showtime) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(showtime.time, color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }

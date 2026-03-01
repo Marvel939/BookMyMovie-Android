@@ -86,6 +86,9 @@ fun NavGraph(navController: NavHostController) {
             val placeId = backStackEntry.arguments?.getString("placeId")
             ShowtimeSelectionScreen(navController, placeId, bookingViewModel)
         }
+        composable(Screen.FormatLanguage.route) {
+            FormatLanguageScreen(navController, bookingViewModel)
+        }
         composable(Screen.SeatSelection.route) {
             SeatSelectionScreen(navController, bookingViewModel)
         }

@@ -32,6 +32,7 @@ sealed class Screen(val route: String) {
     object ShowtimeSelection : Screen("showtime_selection/{placeId}") {
         fun createRoute(placeId: String) = "showtime_selection/$placeId"
     }
+    object FormatLanguage : Screen("format_language")
     object SeatSelection : Screen("seat_selection")
     object FoodBeverage : Screen("food_beverage")
     object BookingSummary : Screen("booking_summary")

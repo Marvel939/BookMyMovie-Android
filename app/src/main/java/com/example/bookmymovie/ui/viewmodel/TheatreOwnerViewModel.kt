@@ -423,6 +423,8 @@ class TheatreOwnerViewModel : ViewModel() {
         date: String,
         time: String,
         language: String,
+        formats: String,
+        formatPricesMap: Map<String, Map<String, Int>>,
         silverPrice: Double,
         goldPrice: Double,
         platinumPrice: Double,
@@ -433,7 +435,7 @@ class TheatreOwnerViewModel : ViewModel() {
         val profile = ownerProfile ?: run { onError("Profile not loaded"); return }
         val reqId = db.getReference("showtime_requests").push().key ?: run { onError("DB error"); return }
 
-        val data = mapOf(
+        val data = mutableMapOf<String, Any>(
             "requestId" to reqId,
             "placeId" to profile.placeId,
             "ownerUid" to uid,
@@ -448,6 +450,8 @@ class TheatreOwnerViewModel : ViewModel() {
             "date" to date,
             "time" to time,
             "language" to language,
+            "formats" to formats,
+            "formatPrices" to formatPricesMap,
             "silverPrice" to silverPrice,
             "goldPrice" to goldPrice,
             "platinumPrice" to platinumPrice,
@@ -598,9 +602,22 @@ class TheatreOwnerViewModel : ViewModel() {
             val date        = snapshot.child("date").getValue(String::class.java) ?: ""
             val time        = snapshot.child("time").getValue(String::class.java) ?: ""
             val language    = snapshot.child("language").getValue(String::class.java) ?: "Hindi"
+            val formats     = snapshot.child("formats").getValue(String::class.java) ?: ""
             val silverPrice = snapshot.child("silverPrice").getValue(Double::class.java) ?: 150.0
             val goldPrice   = snapshot.child("goldPrice").getValue(Double::class.java) ?: 250.0
             val platinumPrice = snapshot.child("platinumPrice").getValue(Double::class.java) ?: 400.0
+
+            // Read formatPrices map from request
+            val formatPricesMap = mutableMapOf<String, Map<String, Any>>()
+            snapshot.child("formatPrices").children.forEach { fmtSnap ->
+                val fmtKey = fmtSnap.key ?: return@forEach
+                val priceMap = mutableMapOf<String, Any>()
+                fmtSnap.children.forEach { priceSnap ->
+                    val typeKey = priceSnap.key ?: return@forEach
+                    priceMap[typeKey] = (priceSnap.value as? Long)?.toInt() ?: 0
+                }
+                formatPricesMap[fmtKey] = priceMap
+            }
 
             // Read screen config to get silver/gold/platinum seat counts
             db.getReference("cinema_screens").child(placeId).child(screenId).get()
@@ -612,20 +629,25 @@ class TheatreOwnerViewModel : ViewModel() {
                     val showtimeId = "st_${System.currentTimeMillis()}"
 
                     // Write showtime entry to the user-facing showtimes path
+                    val showtimeData = mutableMapOf<String, Any>(
+                        "screenName"    to screenName,
+                        "screenType"    to screenType,
+                        "movieId"       to movieId,
+                        "movieName"     to movieName,
+                        "moviePoster"   to moviePoster,
+                        "date"          to date,
+                        "time"          to time,
+                        "language"      to language,
+                        "formats"       to formats,
+                        "silverPrice"   to silverPrice,
+                        "goldPrice"     to goldPrice,
+                        "platinumPrice" to platinumPrice
+                    )
+                    if (formatPricesMap.isNotEmpty()) {
+                        showtimeData["formatPrices"] = formatPricesMap
+                    }
                     db.getReference("showtimes").child(placeId).child(screenId).child(showtimeId)
-                        .setValue(mapOf(
-                            "screenName"    to screenName,
-                            "screenType"    to screenType,
-                            "movieId"       to movieId,
-                            "movieName"     to movieName,
-                            "moviePoster"   to moviePoster,
-                            "date"          to date,
-                            "time"          to time,
-                            "language"      to language,
-                            "silverPrice"   to silverPrice,
-                            "goldPrice"     to goldPrice,
-                            "platinumPrice" to platinumPrice
-                        ))
+                        .setValue(showtimeData)
 
                     // Initialize seats using row-based layout (10 seats per row)
                     val seatsRef = db.getReference("seats").child(placeId).child(screenId).child(showtimeId)
