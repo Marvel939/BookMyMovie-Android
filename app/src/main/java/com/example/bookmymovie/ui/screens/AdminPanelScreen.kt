@@ -63,11 +63,11 @@ fun AdminPanelScreen(
         if (!bookingViewModel.isAdmin) return@Scaffold
 
         val ownerVm: TheatreOwnerViewModel = viewModel()
-        val tabs = listOf("Screens", "Showtimes", "Food", "Requests")
+        val tabs = listOf("Screens", "Showtimes", "Food", "Requests", "Stream")
         var selectedTab by remember { mutableIntStateOf(0) }
 
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = selectedTab, containerColor = CardBackground, contentColor = PrimaryAccent) {
+            ScrollableTabRow(selectedTabIndex = selectedTab, containerColor = CardBackground, contentColor = PrimaryAccent, edgePadding = 0.dp) {
                 tabs.forEachIndexed { idx, t ->
                     Tab(
                         selected = selectedTab == idx,
@@ -83,6 +83,11 @@ fun AdminPanelScreen(
                 3 -> {
                     LaunchedEffect(Unit) {
                         navController.navigate(Screen.AdminRequests.route)
+                    }
+                }
+                4 -> {
+                    LaunchedEffect(Unit) {
+                        navController.navigate(Screen.AdminStreamingCatalog.route)
                     }
                 }
             }

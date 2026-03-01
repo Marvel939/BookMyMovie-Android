@@ -36,6 +36,7 @@ import com.example.bookmymovie.navigation.Screen
 import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.MovieViewModel
 import com.example.bookmymovie.ui.viewmodel.NearbyTheatresViewModel
+import com.example.bookmymovie.ui.viewmodel.StreamingViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -48,13 +49,14 @@ import kotlinx.coroutines.yield
 @Composable
 fun HomeScreen(
     navController: NavController,
-    movieViewModel: MovieViewModel = viewModel()
+    movieViewModel: MovieViewModel = viewModel(),
+    streamingViewModel: StreamingViewModel = viewModel()
 ) {
     val nearbyTheatresViewModel: NearbyTheatresViewModel =
         viewModel(LocalContext.current as MainActivity)
     var selectedItem by remember { mutableIntStateOf(0) }
-    val items = listOf("Home", "Movies", "Offers", "Profile")
-    val icons = listOf(Icons.Default.Home, Icons.Default.PlayArrow, Icons.Default.Star, Icons.Default.Person)
+    val items = listOf("Home", "Stream", "Offers", "Profile")
+    val icons = listOf(Icons.Default.Home, Icons.Default.LiveTv, Icons.Default.Star, Icons.Default.Person)
 
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid ?: ""
@@ -174,8 +176,9 @@ fun HomeScreen(
                         selected = selectedItem == index,
                         onClick = {
                             selectedItem = index
-                            if (item == "Profile") {
-                                navController.navigate(Screen.Profile.route)
+                            when (item) {
+                                "Profile" -> navController.navigate(Screen.Profile.route)
+                                "Stream" -> navController.navigate(Screen.StreamBrowse.route)
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -238,6 +241,13 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(28.dp))
                 MovieSection("Now Showing", movieViewModel.nowPlayingMovies, navController)
                 Spacer(modifier = Modifier.height(28.dp))
+
+                // Streaming Highlight Row
+                StreamingHighlightRow(
+                    movies = streamingViewModel.highlightMovies,
+                    navController = navController
+                )
+
                 ComingSoonSection("Coming Soon", movieViewModel.upcomingMovies, navController)
                 Spacer(modifier = Modifier.height(28.dp))
                 MovieSection("Popular", movieViewModel.popularMovies, navController)
@@ -524,6 +534,126 @@ fun ComingSoonCard(movie: Movie, onClick: () -> Unit) {
             text = movie.releaseDate,
             fontSize = 11.sp,
             color = TextSecondary
+        )
+    }
+}
+
+// ─── Streaming Highlight Row ─────────────────────────────────────────────────
+
+@Composable
+fun StreamingHighlightRow(
+    movies: List<com.example.bookmymovie.model.StreamingMovie>,
+    navController: NavController
+) {
+    if (movies.isEmpty()) return
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.LiveTv,
+                    contentDescription = null,
+                    tint = PrimaryAccent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Stream Now",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            }
+            TextButton(onClick = { navController.navigate(Screen.StreamBrowse.route) }) {
+                Text("See All", color = PrimaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Icon(Icons.Default.ArrowForward, null, tint = PrimaryAccent, modifier = Modifier.size(16.dp))
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(movies) { movie ->
+                StreamingMovieCard(movie = movie, onClick = {
+                    navController.navigate(Screen.StreamDetail.createRoute(movie.movieId))
+                })
+            }
+        }
+        Spacer(modifier = Modifier.height(28.dp))
+    }
+}
+
+@Composable
+private fun StreamingMovieCard(
+    movie: com.example.bookmymovie.model.StreamingMovie,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(130.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(190.dp)
+                .clip(RoundedCornerShape(12.dp))
+        ) {
+            AsyncImage(
+                model = movie.posterUrl,
+                contentDescription = movie.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            // Platform badge
+            Surface(
+                shape = RoundedCornerShape(bottomEnd = 12.dp),
+                color = PrimaryAccent.copy(alpha = 0.9f),
+                modifier = Modifier.align(Alignment.TopStart)
+            ) {
+                Text(
+                    movie.ottPlatform,
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+            // Rent/Buy badge
+            Surface(
+                shape = RoundedCornerShape(topStart = 12.dp),
+                color = Color.Black.copy(alpha = 0.7f),
+                modifier = Modifier.align(Alignment.BottomEnd)
+            ) {
+                Text(
+                    "₹${movie.rentPrice.toInt()}",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            movie.title,
+            color = TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            movie.genre,
+            color = TextSecondary,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

@@ -45,4 +45,16 @@ sealed class Screen(val route: String) {
     object AdminRequests : Screen("admin_requests")
     object PhoneAuth : Screen("phone_auth")
     object EditProfile : Screen("edit_profile")
+
+    // Streaming
+    object StreamBrowse : Screen("stream_browse")
+    object StreamDetail : Screen("stream_detail/{movieId}") {
+        fun createRoute(movieId: String) = "stream_detail/$movieId"
+    }
+    object MyLibrary : Screen("my_library")
+    object StreamPlayer : Screen("stream_player/{movieId}") {
+        fun createRoute(movieId: String) = "stream_player/$movieId"
+    }
+    object AdminStreamingCatalog : Screen("admin_streaming_catalog")
+    object AdminAddStreamingMovie : Screen("admin_add_streaming_movie")
 }

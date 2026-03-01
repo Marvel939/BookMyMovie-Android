@@ -11,11 +11,13 @@ import androidx.navigation.navArgument
 import com.example.bookmymovie.MainActivity
 import com.example.bookmymovie.ui.screens.*
 import com.example.bookmymovie.ui.viewmodel.BookingViewModel
+import com.example.bookmymovie.ui.viewmodel.StreamingViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
     val context = LocalContext.current
     val bookingViewModel: BookingViewModel = viewModel(context as MainActivity)
+    val streamingViewModel: StreamingViewModel = viewModel(context as MainActivity)
 
     NavHost(
         navController = navController,
@@ -31,7 +33,7 @@ fun NavGraph(navController: NavHostController) {
             SignupScreen(navController)
         }
         composable(Screen.Home.route) {
-            HomeScreen(navController)
+            HomeScreen(navController, streamingViewModel = streamingViewModel)
         }
         composable(Screen.Notifications.route) {
             NotificationsScreen(navController)
@@ -122,6 +124,34 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(Screen.EditProfile.route) {
             EditProfileScreen(navController)
+        }
+
+        // ── Streaming Flow ────────────────────────────────────────────────────
+        composable(Screen.StreamBrowse.route) {
+            StreamBrowseScreen(navController, streamingViewModel)
+        }
+        composable(
+            route = Screen.StreamDetail.route,
+            arguments = listOf(navArgument("movieId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
+            StreamDetailScreen(navController, streamingViewModel, movieId)
+        }
+        composable(Screen.MyLibrary.route) {
+            MyLibraryScreen(navController, streamingViewModel)
+        }
+        composable(
+            route = Screen.StreamPlayer.route,
+            arguments = listOf(navArgument("movieId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
+            StreamPlayerScreen(navController, streamingViewModel, movieId)
+        }
+        composable(Screen.AdminStreamingCatalog.route) {
+            AdminStreamingCatalogScreen(navController)
+        }
+        composable(Screen.AdminAddStreamingMovie.route) {
+            AdminAddStreamingMovieScreen(navController)
         }
     }
 }

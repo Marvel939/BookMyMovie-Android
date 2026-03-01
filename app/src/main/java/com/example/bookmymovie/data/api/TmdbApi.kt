@@ -77,4 +77,21 @@ interface TmdbApi {
         @Query("api_key") apiKey: String,
         @Query("language") language: String = "en-US"
     ): TmdbGenreListResponse
+
+    @GET("movie/{movie_id}/watch/providers")
+    suspend fun getWatchProviders(
+        @Path("movie_id") movieId: Int,
+        @Query("api_key") apiKey: String
+    ): TmdbWatchProvidersResponse
+
+    @GET("discover/movie")
+    suspend fun discoverMoviesWithProviders(
+        @Query("api_key") apiKey: String,
+        @Query("with_watch_providers") providerIds: String,
+        @Query("watch_region") watchRegion: String = "IN",
+        @Query("with_watch_monetization_types") monetizationTypes: String = "flatrate|rent|buy",
+        @Query("language") language: String = "en-US",
+        @Query("sort_by") sortBy: String = "popularity.desc",
+        @Query("page") page: Int = 1
+    ): TmdbMovieListResponse
 }

@@ -100,3 +100,23 @@ data class TmdbPersonMovieCredits(
     val cast: List<TmdbMovie>?,
     val crew: List<TmdbMovie>?
 )
+
+// ── Watch Providers Models ──────────────────────────────────────────────
+data class TmdbWatchProvidersResponse(
+    val id: Int?,
+    val results: Map<String, TmdbCountryProviders>?
+)
+
+data class TmdbCountryProviders(
+    val link: String?,
+    val flatrate: List<TmdbProvider>?,
+    val rent: List<TmdbProvider>?,
+    val buy: List<TmdbProvider>?
+)
+
+data class TmdbProvider(
+    @SerializedName("provider_id") val providerId: Int,
+    @SerializedName("provider_name") val providerName: String,
+    @SerializedName("logo_path") val logoPath: String?,
+    @SerializedName("display_priority") val displayPriority: Int?
+)
