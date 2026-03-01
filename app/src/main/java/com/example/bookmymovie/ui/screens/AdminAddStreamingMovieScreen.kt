@@ -1,6 +1,8 @@
 package com.example.bookmymovie.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,6 +10,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -103,10 +107,10 @@ fun AdminAddStreamingMovieScreen(navController: NavController) {
                 )
             }
 
-            // Language dropdown
-            StreamDropdown(
-                value = vm.language,
-                onSelect = { vm.language = it },
+            // Language multi-select
+            StreamMultiSelectDropdown(
+                selectedValues = vm.language,
+                onSelectionChange = { vm.language = it },
                 options = languages,
                 label = "Language"
             )
@@ -284,6 +288,76 @@ private fun StreamDropdown(
                 DropdownMenuItem(
                     text = { Text(option, color = TextPrimary) },
                     onClick = { onSelect(option); expanded = false }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StreamMultiSelectDropdown(
+    selectedValues: String,
+    onSelectionChange: (String) -> Unit,
+    options: List<String>,
+    label: String
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedSet = remember(selectedValues) {
+        selectedValues.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedValues,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label, color = TextSecondary) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PrimaryAccent,
+                unfocusedBorderColor = DividerColor,
+                focusedContainerColor = CardBackground,
+                unfocusedContainerColor = CardBackground,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary
+            )
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(CardBackground)
+        ) {
+            options.forEach { option ->
+                val isSelected = option in selectedSet
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = null,
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = PrimaryAccent,
+                                    uncheckedColor = TextSecondary,
+                                    checkmarkColor = Color.White
+                                )
+                            )
+                            Text(option, color = TextPrimary)
+                        }
+                    },
+                    onClick = {
+                        val newSet = selectedSet.toMutableSet()
+                        if (isSelected) newSet.remove(option) else newSet.add(option)
+                        onSelectionChange(newSet.joinToString(", "))
+                    }
                 )
             }
         }

@@ -174,19 +174,44 @@ class NearbyTheatresViewModel : ViewModel() {
         }
     }
 
-    /** Filters Firebase cinemas by city name (matches against address field) */
+    /** Filters Firebase cinemas by city name (matches against address field).
+     *  Also includes approved theatre-owner registrations whose city matches. */
     fun filterTheatresByCity(city: String) {
         selectedCity = city
         isLoadingTheatres = true
         theatresError = null
         nearbyTheatres = emptyList()
-        val ref = FirebaseDatabase.getInstance().getReference("cinemas")
-        ref.keepSynced(true)
-        ref.addListenerForSingleValueEvent(object : ValueEventListener {
+
+        val db = FirebaseDatabase.getInstance()
+        val cinemasRef = db.getReference("cinemas")
+        val ownersRef = db.getReference("theatre_owners")
+
+        // Track completion of both queries
+        var cinemasResult: List<NearbyTheatre>? = null
+        var ownersResult: List<NearbyTheatre>? = null
+
+        fun mergeResults() {
+            // Wait until both queries complete
+            val c = cinemasResult ?: return
+            val o = ownersResult ?: return
+
+            // Merge, deduplicate by placeId (cinema entries take priority)
+            val existingPlaceIds = c.map { it.placeId }.toSet()
+            val merged = c + o.filter { it.placeId.isBlank() || it.placeId !in existingPlaceIds }
+
+            isLoadingTheatres = false
+            nearbyTheatres = merged
+            if (merged.isEmpty()) {
+                theatresError = "No cinemas found in $city"
+            }
+        }
+
+        // 1. Fetch from cinemas/ collection (Google Places cache)
+        cinemasRef.keepSynced(true)
+        cinemasRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                isLoadingTheatres = false
-                if (snapshot.exists()) {
-                    val all = snapshot.children.mapNotNull { child ->
+                val all = if (snapshot.exists()) {
+                    snapshot.children.mapNotNull { child ->
                         val name = child.child("name").getValue(String::class.java)
                             ?: return@mapNotNull null
                         val photoUrls = child.child("photoUrls").children
@@ -203,18 +228,45 @@ class NearbyTheatresViewModel : ViewModel() {
                             lng = child.child("lng").getValue(Double::class.java) ?: 0.0
                         )
                     }
-                    val filtered = all.filter { it.address.contains(city, ignoreCase = true) }
-                    nearbyTheatres = filtered
-                    if (filtered.isEmpty()) {
-                        theatresError = "No cinemas found in $city"
-                    }
-                } else {
-                    theatresError = "No cinemas found in $city"
-                }
+                } else emptyList()
+                cinemasResult = all.filter { it.address.contains(city, ignoreCase = true) }
+                mergeResults()
             }
             override fun onCancelled(error: DatabaseError) {
-                isLoadingTheatres = false
-                theatresError = "Failed to load cinemas"
+                cinemasResult = emptyList()
+                mergeResults()
+            }
+        })
+
+        // 2. Fetch approved theatre owners registered in this city
+        ownersRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val registered = if (snapshot.exists()) {
+                    snapshot.children.mapNotNull { child ->
+                        val status = child.child("status").getValue(String::class.java) ?: ""
+                        if (status != "approved") return@mapNotNull null
+                        val ownerCity = child.child("city").getValue(String::class.java) ?: ""
+                        if (!ownerCity.equals(city, ignoreCase = true)) return@mapNotNull null
+                        val cinemaName = child.child("cinemaName").getValue(String::class.java)
+                            ?: return@mapNotNull null
+                        NearbyTheatre(
+                            name = cinemaName,
+                            address = ownerCity,
+                            rating = null,
+                            photoUrl = null,
+                            photoUrls = emptyList(),
+                            placeId = child.child("placeId").getValue(String::class.java) ?: "",
+                            lat = 0.0,
+                            lng = 0.0
+                        )
+                    }
+                } else emptyList()
+                ownersResult = registered
+                mergeResults()
+            }
+            override fun onCancelled(error: DatabaseError) {
+                ownersResult = emptyList()
+                mergeResults()
             }
         })
     }

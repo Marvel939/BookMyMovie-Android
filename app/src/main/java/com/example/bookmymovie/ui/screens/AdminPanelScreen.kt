@@ -1,5 +1,6 @@
 package com.example.bookmymovie.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -97,32 +98,103 @@ fun AdminPanelScreen(
 
 // ─── Approved Screens Tab ────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ApprovedScreensTab(vm: TheatreOwnerViewModel) {
     LaunchedEffect(Unit) { vm.loadAllScreens() }
-    Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        when {
-            vm.isLoadingAllScreens -> CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = PrimaryAccent
-            )
-            vm.allScreens.isEmpty() -> Column(
-                modifier = Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+
+    var selectedCinemaPlaceId by remember { mutableStateOf<String?>(null) }
+    var filterExpanded by remember { mutableStateOf(false) }
+
+    val cinemaOptions = remember(vm.cinemaNameMap) {
+        vm.cinemaNameMap.entries.sortedBy { it.value }
+    }
+    val filteredScreens = remember(vm.allScreens, selectedCinemaPlaceId) {
+        if (selectedCinemaPlaceId == null) vm.allScreens
+        else vm.allScreens.filter { it.placeId == selectedCinemaPlaceId }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        // Cinema filter dropdown
+        if (cinemaOptions.isNotEmpty()) {
+            ExposedDropdownMenuBox(
+                expanded = filterExpanded,
+                onExpandedChange = { filterExpanded = it }
             ) {
-                Text("No screens registered yet.", color = TextSecondary, fontSize = 14.sp)
-                Text("Theatre owners add screens from their panel.", color = TextSecondary, fontSize = 12.sp)
+                OutlinedTextField(
+                    value = if (selectedCinemaPlaceId == null) "All Cinemas"
+                            else vm.cinemaNameMap[selectedCinemaPlaceId] ?: "All Cinemas",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Filter by Cinema", color = TextSecondary, fontSize = 13.sp) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(filterExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryAccent,
+                        unfocusedBorderColor = DividerColor,
+                        focusedContainerColor = CardBackground,
+                        unfocusedContainerColor = CardBackground,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+                ExposedDropdownMenu(
+                    expanded = filterExpanded,
+                    onDismissRequest = { filterExpanded = false },
+                    modifier = Modifier.background(CardBackground)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("All Cinemas", color = TextPrimary) },
+                        onClick = { selectedCinemaPlaceId = null; filterExpanded = false }
+                    )
+                    cinemaOptions.forEach { (placeId, cinemaName) ->
+                        DropdownMenuItem(
+                            text = { Text(cinemaName, color = TextPrimary) },
+                            onClick = { selectedCinemaPlaceId = placeId; filterExpanded = false }
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        when {
+            vm.isLoadingAllScreens -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = PrimaryAccent)
+            }
+            vm.allScreens.isEmpty() -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text("No screens registered yet.", color = TextSecondary, fontSize = 14.sp)
+                    Text("Theatre owners add screens from their panel.", color = TextSecondary, fontSize = 12.sp)
+                }
+            }
+            filteredScreens.isEmpty() -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No screens found for this cinema.", color = TextSecondary, fontSize = 14.sp)
             }
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(vm.allScreens) { screen -> ScreenInfoCard(screen) }
+                items(filteredScreens) { screen ->
+                    ScreenInfoCard(screen, cinemaName = vm.cinemaNameMap[screen.placeId])
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ScreenInfoCard(screen: OwnerScreen) {
+private fun ScreenInfoCard(screen: OwnerScreen, cinemaName: String? = null) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -143,6 +215,9 @@ private fun ScreenInfoCard(screen: OwnerScreen) {
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
+            }
+            if (!cinemaName.isNullOrBlank()) {
+                Text(cinemaName, color = TextPrimary, fontSize = 13.sp)
             }
             Text("Cinema ID: ${screen.placeId}", color = TextSecondary, fontSize = 12.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {

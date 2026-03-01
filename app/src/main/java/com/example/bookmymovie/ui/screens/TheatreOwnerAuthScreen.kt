@@ -293,23 +293,33 @@ private fun OwnerRegisterTab(navController: NavController) {
         Spacer(Modifier.height(14.dp))
         OwnerTextField(value = email, onValueChange = { email = it }, label = "Email")
         Spacer(Modifier.height(14.dp))
-        // Cinema / Theatre dropdown from Firebase
+        // Cinema / Theatre autocomplete text field
         ExposedDropdownMenuBox(
-            expanded = cinemaDropdownExpanded,
-            onExpandedChange = { cinemaDropdownExpanded = it }
+            expanded = cinemaDropdownExpanded && cinemaName.isNotBlank(),
+            onExpandedChange = { /* controlled by text input focus */ }
         ) {
+            val filteredCinemas = remember(cinemaName, vm.cinemasList) {
+                if (cinemaName.isBlank()) emptyList()
+                else vm.cinemasList.filter {
+                    it.name.contains(cinemaName, ignoreCase = true)
+                }
+            }
+
             OutlinedTextField(
                 value = cinemaName,
-                onValueChange = {},
-                readOnly = true,
+                onValueChange = { newValue ->
+                    cinemaName = newValue
+                    selectedPlaceId = "" // reset selection when user types
+                    cinemaDropdownExpanded = newValue.isNotBlank()
+                },
                 label = { Text("Cinema / Theatre Name", color = TextSecondary, fontSize = 13.sp) },
                 placeholder = { Text(
-                    if (vm.isLoadingCinemas) "Loading cinemas..." else "Select your cinema",
+                    if (vm.isLoadingCinemas) "Loading cinemas..." else "Type your cinema name",
                     color = TextSecondary.copy(alpha = 0.5f)
                 ) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cinemaDropdownExpanded) },
                 modifier = Modifier.fillMaxWidth().menuAnchor(),
                 shape = RoundedCornerShape(30.dp),
+                singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PrimaryAccent,
                     unfocusedBorderColor = DividerColor,
@@ -321,21 +331,14 @@ private fun OwnerRegisterTab(navController: NavController) {
                     unfocusedLabelColor = TextSecondary
                 )
             )
-            ExposedDropdownMenu(
-                expanded = cinemaDropdownExpanded,
-                onDismissRequest = { cinemaDropdownExpanded = false },
-                modifier = Modifier.background(CardBackground)
-            ) {
-                when {
-                    vm.isLoadingCinemas -> DropdownMenuItem(
-                        text = { Text("Loading cinemas...", color = TextSecondary) },
-                        onClick = {}
-                    )
-                    vm.cinemasList.isEmpty() -> DropdownMenuItem(
-                        text = { Text("No cinemas found in database.", color = TextSecondary) },
-                        onClick = {}
-                    )
-                    else -> vm.cinemasList.forEach { cinema ->
+
+            if (filteredCinemas.isNotEmpty()) {
+                ExposedDropdownMenu(
+                    expanded = cinemaDropdownExpanded && cinemaName.isNotBlank(),
+                    onDismissRequest = { cinemaDropdownExpanded = false },
+                    modifier = Modifier.background(CardBackground)
+                ) {
+                    filteredCinemas.forEach { cinema ->
                         DropdownMenuItem(
                             text = {
                                 Column {

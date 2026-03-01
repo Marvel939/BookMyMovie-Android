@@ -129,6 +129,10 @@ class TheatreOwnerViewModel : ViewModel() {
     var isLoadingAllScreens by mutableStateOf(false)
         private set
 
+    /** Maps placeId → cinemaName for approved theatre owners (used in admin filter) */
+    var cinemaNameMap by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
     // Approved showtimes (admin view)
     var approvedShowtimesList by mutableStateOf<List<ShowtimeRequest>>(emptyList())
         private set
@@ -467,28 +471,49 @@ class TheatreOwnerViewModel : ViewModel() {
 
     fun loadAllScreens() {
         isLoadingAllScreens = true
-        db.getReference("cinema_screens").get()
-            .addOnSuccessListener { snap ->
-                val list = mutableListOf<OwnerScreen>()
-                snap.children.forEach { placeSnap ->
-                    placeSnap.children.forEach { screenSnap ->
-                        list.add(
-                            OwnerScreen(
-                                screenId = screenSnap.key ?: "",
-                                screenName = screenSnap.child("screenName").value as? String ?: "",
-                                screenType = screenSnap.child("screenType").value as? String ?: "2D",
-                                totalSeats = (screenSnap.child("totalSeats").value as? Long)?.toInt() ?: 0,
-                                silverSeats = (screenSnap.child("silverSeats").value as? Long)?.toInt() ?: 0,
-                                goldSeats = (screenSnap.child("goldSeats").value as? Long)?.toInt() ?: 0,
-                                platinumSeats = (screenSnap.child("platinumSeats").value as? Long)?.toInt() ?: 0,
-                                placeId = screenSnap.child("placeId").value as? String ?: placeSnap.key ?: "",
-                                ownerUid = screenSnap.child("ownerUid").value as? String ?: ""
-                            )
-                        )
+        // First, get all approved theatre owners to know which placeIds are valid
+        db.getReference("theatre_owners").get()
+            .addOnSuccessListener { ownersSnap ->
+                val approvedPlaceIds = mutableSetOf<String>()
+                val nameMap = mutableMapOf<String, String>()
+                ownersSnap.children.forEach { ownerChild ->
+                    val status = ownerChild.child("status").value as? String ?: ""
+                    val placeId = ownerChild.child("placeId").value as? String ?: ""
+                    val cName = ownerChild.child("cinemaName").value as? String ?: ""
+                    if (status == "approved" && placeId.isNotBlank()) {
+                        approvedPlaceIds.add(placeId)
+                        if (cName.isNotBlank()) nameMap[placeId] = cName
                     }
                 }
-                allScreens = list
-                isLoadingAllScreens = false
+                cinemaNameMap = nameMap
+                // Now load screens and filter to only approved theatre owners
+                db.getReference("cinema_screens").get()
+                    .addOnSuccessListener { snap ->
+                        val list = mutableListOf<OwnerScreen>()
+                        snap.children.forEach { placeSnap ->
+                            val placeKey = placeSnap.key ?: ""
+                            // Only include screens whose placeId belongs to an approved owner
+                            if (placeKey !in approvedPlaceIds) return@forEach
+                            placeSnap.children.forEach { screenSnap ->
+                                list.add(
+                                    OwnerScreen(
+                                        screenId = screenSnap.key ?: "",
+                                        screenName = screenSnap.child("screenName").value as? String ?: "",
+                                        screenType = screenSnap.child("screenType").value as? String ?: "2D",
+                                        totalSeats = (screenSnap.child("totalSeats").value as? Long)?.toInt() ?: 0,
+                                        silverSeats = (screenSnap.child("silverSeats").value as? Long)?.toInt() ?: 0,
+                                        goldSeats = (screenSnap.child("goldSeats").value as? Long)?.toInt() ?: 0,
+                                        platinumSeats = (screenSnap.child("platinumSeats").value as? Long)?.toInt() ?: 0,
+                                        placeId = screenSnap.child("placeId").value as? String ?: placeKey,
+                                        ownerUid = screenSnap.child("ownerUid").value as? String ?: ""
+                                    )
+                                )
+                            }
+                        }
+                        allScreens = list
+                        isLoadingAllScreens = false
+                    }
+                    .addOnFailureListener { isLoadingAllScreens = false }
             }
             .addOnFailureListener { isLoadingAllScreens = false }
     }
