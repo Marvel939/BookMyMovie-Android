@@ -10,16 +10,16 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
+private val PremiumDarkScheme = darkColorScheme(
     primary = PrimaryAccent,
     secondary = SecondaryAccent,
-    tertiary = SecondaryAccent,
+    tertiary = WarmHighlight,
     background = DeepCharcoal,
     surface = SecondaryBackground,
     surfaceVariant = CardBackground,
-    onPrimary = TextPrimary,
-    onSecondary = TextPrimary,
-    onTertiary = TextPrimary,
+    onPrimary = Color(0xFF1A1207),
+    onSecondary = Color(0xFF1A1207),
+    onTertiary = Color(0xFF1A1207),
     onBackground = TextPrimary,
     onSurface = TextPrimary,
     onSurfaceVariant = TextSecondary,
@@ -27,7 +27,9 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant = DividerColor,
     inverseSurface = TextPrimary,
     inverseOnSurface = DeepCharcoal,
-    surfaceTint = Color.Transparent
+    surfaceTint = Color.Transparent,
+    error = ErrorRose,
+    onError = TextPrimary
 )
 
 @Composable
@@ -35,7 +37,7 @@ fun BookmyMovieTheme(
     darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = DarkColorScheme
+    val colorScheme = PremiumDarkScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {

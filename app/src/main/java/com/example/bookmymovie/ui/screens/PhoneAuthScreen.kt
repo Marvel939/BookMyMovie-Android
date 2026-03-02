@@ -379,7 +379,7 @@ fun PhoneAuthScreen(navController: NavController) {
             Text(
                 text = statusMessage,
                 color = if (statusMessage.contains("not registered", ignoreCase = true))
-                    Color(0xFFFF6B6B) else PrimaryAccent,
+                    ErrorRose else PrimaryAccent,
                 fontSize = 13.sp,
                 fontWeight = if (statusMessage.contains("not registered", ignoreCase = true))
                     FontWeight.SemiBold else FontWeight.Normal

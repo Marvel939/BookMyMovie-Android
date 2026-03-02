@@ -2,4 +2,8 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="deep_charcoal">#FF0F1923</color>
+    <color name="primary_accent">#FFD4A44C</color>
+    <color name="text_primary">#FFF5F0EB</color>
+    <color name="card_background">#FF243142</color>
 </resources>

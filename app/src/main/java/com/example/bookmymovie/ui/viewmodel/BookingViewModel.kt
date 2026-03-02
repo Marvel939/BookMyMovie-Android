@@ -23,6 +23,7 @@ import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
@@ -140,7 +141,28 @@ class BookingViewModel : ViewModel() {
                         }
                     }
                 }
-                showtimes = result.sortedBy { it.time }
+                // Filter out showtimes that have already passed if the date is today
+                val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                val filtered = if (date == todayStr) {
+                    val now = Calendar.getInstance()
+                    val currentHour = now.get(Calendar.HOUR_OF_DAY)
+                    val currentMinute = now.get(Calendar.MINUTE)
+                    result.filter { st ->
+                        try {
+                            val timeParts = st.time.uppercase(Locale.ENGLISH)
+                            val sdfTime = SimpleDateFormat("hh:mm a", Locale.ENGLISH)
+                            val parsed = sdfTime.parse(timeParts)
+                            if (parsed != null) {
+                                val cal = Calendar.getInstance().apply { time = parsed }
+                                val showHour = cal.get(Calendar.HOUR_OF_DAY)
+                                val showMinute = cal.get(Calendar.MINUTE)
+                                showHour > currentHour || (showHour == currentHour && showMinute > currentMinute)
+                            } else true
+                        } catch (_: Exception) { true }
+                    }
+                } else result
+
+                showtimes = filtered.sortedBy { it.time }
                 isLoadingShowtimes = false
             }
             override fun onCancelled(error: DatabaseError) { isLoadingShowtimes = false }

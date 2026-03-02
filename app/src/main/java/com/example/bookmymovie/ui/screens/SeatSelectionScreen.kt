@@ -322,8 +322,8 @@ private fun SeatCountDialog(
                                     .background(
                                         Brush.verticalGradient(
                                             colors = listOf(
-                                                Color(0xFF2A2A35),
-                                                Color(0xFF1E1E26)
+                                                Color(0xFF2E3D4F),
+                                                Color(0xFF243142)
                                             )
                                         )
                                     )
@@ -526,7 +526,7 @@ private fun PremiumSeat(
 
     val seatColor by animateColorAsState(
         targetValue = when {
-            seat.booked -> Color(0xFF2A2A30)
+            seat.booked -> Color(0xFF2E3D4F)
             isSelected -> PrimaryAccent
             seat.type == "silver" -> SilverSeat
             seat.type == "gold" -> GoldSeat
@@ -581,7 +581,7 @@ private fun PremiumSeat(
                 path = backrestPath,
                 brush = Brush.verticalGradient(
                     colors = if (seat.booked) {
-                        listOf(Color(0xFF2A2A30), Color(0xFF222228))
+                        listOf(Color(0xFF2E3D4F), Color(0xFF243142))
                     } else {
                         listOf(seatColor.copy(alpha = 0.9f), seatColor.copy(alpha = 0.65f))
                     }
@@ -604,7 +604,7 @@ private fun PremiumSeat(
                 path = cushionPath,
                 brush = Brush.verticalGradient(
                     colors = if (seat.booked) {
-                        listOf(Color(0xFF1E1E24), Color(0xFF1A1A20))
+                        listOf(Color(0xFF1A2636), Color(0xFF152030))
                     } else {
                         listOf(seatColor.copy(alpha = 0.75f), seatColor.copy(alpha = 0.5f))
                     }
@@ -614,13 +614,13 @@ private fun PremiumSeat(
             // Armrests
             val armWidth = w * 0.08f
             drawRoundRect(
-                color = if (seat.booked) Color(0xFF222228) else seatColor.copy(alpha = 0.5f),
+                color = if (seat.booked) Color(0xFF243142) else seatColor.copy(alpha = 0.5f),
                 topLeft = Offset(w * 0.02f, h * 0.38f),
                 size = Size(armWidth, h * 0.42f),
                 cornerRadius = CornerRadius(w * 0.04f)
             )
             drawRoundRect(
-                color = if (seat.booked) Color(0xFF222228) else seatColor.copy(alpha = 0.5f),
+                color = if (seat.booked) Color(0xFF243142) else seatColor.copy(alpha = 0.5f),
                 topLeft = Offset(w * 0.9f, h * 0.38f),
                 size = Size(armWidth, h * 0.42f),
                 cornerRadius = CornerRadius(w * 0.04f)
@@ -700,7 +700,7 @@ private fun SeatLegend(silverPrice: Int, goldPrice: Int, platinumPrice: Int) {
             ) {
                 LegendStatus(color = SilverSeat, label = "Available")
                 LegendStatus(color = PrimaryAccent, label = "Selected")
-                LegendStatus(color = Color(0xFF2A2A30), label = "Booked")
+                LegendStatus(color = Color(0xFF2E3D4F), label = "Booked")
             }
         }
     }
