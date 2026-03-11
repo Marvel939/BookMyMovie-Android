@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +48,11 @@ fun AdminPanelScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, null, tint = TextPrimary)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { navController.navigate(Screen.AdminProfile.route) }) {
+                        Icon(Icons.Default.Person, "Profile", tint = PrimaryAccent)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DeepCharcoal)

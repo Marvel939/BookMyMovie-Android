@@ -6,7 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.bookmymovie.data.api.RetrofitClient
 import com.example.bookmymovie.data.repository.MovieRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.Query
+import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -93,6 +97,10 @@ class TheatreOwnerViewModel : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseDatabase.getInstance()
+
+    // Listener tracking for pending owner registrations (avoids stale cache with persistence)
+    private var pendingOwnersQuery: Query? = null
+    private var pendingOwnersListener: ValueEventListener? = null
 
     // Owner profile state
     var ownerProfile by mutableStateOf<TheatreOwnerProfile?>(null)
@@ -536,8 +544,15 @@ class TheatreOwnerViewModel : ViewModel() {
 
     fun loadPendingOwnerRegistrations() {
         isLoadingAdminData = true
-        db.getReference("theatre_owners").orderByChild("status").equalTo("pending").get()
-            .addOnSuccessListener { snap ->
+        // Remove previous listener to avoid duplicates
+        pendingOwnersListener?.let { pendingOwnersQuery?.removeEventListener(it) }
+
+        val query = db.getReference("theatre_owners")
+            .orderByChild("status")
+            .equalTo("pending")
+
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snap: DataSnapshot) {
                 val list = mutableListOf<TheatreOwnerProfile>()
                 snap.children.forEach { child ->
                     list.add(
@@ -556,7 +571,15 @@ class TheatreOwnerViewModel : ViewModel() {
                 pendingOwnerRegistrations = list
                 isLoadingAdminData = false
             }
-            .addOnFailureListener { isLoadingAdminData = false }
+
+            override fun onCancelled(error: DatabaseError) {
+                isLoadingAdminData = false
+            }
+        }
+
+        pendingOwnersQuery = query
+        pendingOwnersListener = listener
+        query.addValueEventListener(listener)
     }
 
     fun approveOwnerRegistration(uid: String, onDone: () -> Unit) {
@@ -805,6 +828,11 @@ class TheatreOwnerViewModel : ViewModel() {
         val amPm = if (h < 12) "AM" else "PM"
         val h12 = if (h % 12 == 0) 12 else h % 12
         return "%02d:%02d %s".format(h12, m, amPm)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        pendingOwnersListener?.let { pendingOwnersQuery?.removeEventListener(it) }
     }
 }
 

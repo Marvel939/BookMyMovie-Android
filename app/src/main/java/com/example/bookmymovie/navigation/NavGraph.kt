@@ -156,6 +156,12 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.AdminAddStreamingMovie.route) {
             AdminAddStreamingMovieScreen(navController)
         }
+        composable(Screen.AdminProfile.route) {
+            AdminProfileScreen(navController)
+        }
+        composable(Screen.TheatreOwnerProfile.route) {
+            TheatreOwnerProfileScreen(navController)
+        }
     }
 }
 
