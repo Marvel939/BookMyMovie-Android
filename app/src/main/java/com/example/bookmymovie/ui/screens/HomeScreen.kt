@@ -179,6 +179,7 @@ fun HomeScreen(
                             when (item) {
                                 "Profile" -> navController.navigate(Screen.Profile.route)
                                 "Stream" -> navController.navigate(Screen.StreamBrowse.route)
+                                "Offers" -> navController.navigate(Screen.Offers.route)
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(

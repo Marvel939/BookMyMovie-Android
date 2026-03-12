@@ -75,6 +75,7 @@ class BookingViewModel : ViewModel() {
 
     // ── Admin state ─────────────────────────────────────────────────────────
     var isAdmin by mutableStateOf(false)
+    var isAdminChecked by mutableStateOf(false)
         private set
     var adminActionSuccess by mutableStateOf<String?>(null)
     var adminActionError by mutableStateOf<String?>(null)
@@ -214,7 +215,8 @@ class BookingViewModel : ViewModel() {
                             price = child.child("price").getValue(Int::class.java) ?: 0,
                             category = child.child("category").getValue(String::class.java) ?: "Snacks",
                             imageUrl = child.child("imageUrl").getValue(String::class.java) ?: "",
-                            available = true
+                            available = true,
+                            ml = child.child("ml").getValue(Int::class.java) ?: 0
                         )
                     }
                     isLoadingFood = false
@@ -522,13 +524,19 @@ class BookingViewModel : ViewModel() {
 
     // ── Admin: check if current user is admin ────────────────────────────────
     fun checkAdminStatus() {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+            isAdminChecked = true
+            return
+        }
         FirebaseDatabase.getInstance().getReference("admin_users").child(uid)
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     isAdmin = snapshot.exists()
+                    isAdminChecked = true
                 }
-                override fun onCancelled(error: DatabaseError) {}
+                override fun onCancelled(error: DatabaseError) {
+                    isAdminChecked = true
+                }
             })
     }
 
@@ -595,22 +603,53 @@ class BookingViewModel : ViewModel() {
     }
 
     // ── Admin: add food item ─────────────────────────────────────────────────
-    fun addFoodItem(name: String, description: String, price: Int, category: String, imageUrl: String) {
+    fun addFoodItem(name: String, description: String, price: Int, category: String, imageUrl: String, ml: Int = 0) {
         val itemId = "food_${System.currentTimeMillis()}"
+        val data = mutableMapOf<String, Any>(
+            "name" to name,
+            "description" to description,
+            "price" to price,
+            "category" to category,
+            "imageUrl" to imageUrl,
+            "available" to true
+        )
+        if (category == "Beverages" && ml > 0) data["ml"] = ml
         FirebaseDatabase.getInstance().getReference("food_menu").child(itemId)
-            .setValue(mapOf(
-                "name" to name,
-                "description" to description,
-                "price" to price,
-                "category" to category,
-                "imageUrl" to imageUrl,
-                "available" to true
-            )).addOnSuccessListener {
+            .setValue(data).addOnSuccessListener {
                 foodItems = emptyList() // clear cache so it reloads
                 adminActionSuccess = "'$name' added to food menu!"
                 adminActionError = null
             }.addOnFailureListener { adminActionError = it.message }
     }
+
+    // ── Admin: upload food image to Firebase Storage ─────────────────────────
+    var foodImageUploading by mutableStateOf(false)
+        private set
+    var foodImageUrl by mutableStateOf("")
+        private set
+
+    fun uploadFoodImage(uri: android.net.Uri, context: android.content.Context) {
+        foodImageUploading = true
+        val fileName = "food_${System.currentTimeMillis()}.jpg"
+        val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance()
+            .reference.child("food_images/$fileName")
+        storageRef.putFile(uri)
+            .addOnSuccessListener {
+                storageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
+                    foodImageUrl = downloadUrl.toString()
+                    foodImageUploading = false
+                }.addOnFailureListener {
+                    adminActionError = "Failed to get download URL"
+                    foodImageUploading = false
+                }
+            }
+            .addOnFailureListener {
+                adminActionError = "Image upload failed: ${it.message}"
+                foodImageUploading = false
+            }
+    }
+
+    fun clearFoodImageUrl() { foodImageUrl = "" }
 
     // ── Load screens for admin ───────────────────────────────────────────────
     var cinemaScreens by mutableStateOf<Map<String, String>>(emptyMap()) // screenId -> name

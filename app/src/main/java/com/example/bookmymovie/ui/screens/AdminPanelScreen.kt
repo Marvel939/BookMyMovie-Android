@@ -1,6 +1,11 @@
 package com.example.bookmymovie.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,12 +67,18 @@ fun AdminPanelScreen(
         },
         containerColor = DeepCharcoal
     ) { padding ->
-        LaunchedEffect(bookingViewModel.isAdmin) {
-            if (!bookingViewModel.isAdmin) {
+        LaunchedEffect(bookingViewModel.isAdmin, bookingViewModel.isAdminChecked) {
+            if (bookingViewModel.isAdminChecked && !bookingViewModel.isAdmin) {
                 navController.navigate(Screen.AdminAuth.route) {
                     popUpTo(Screen.AdminPanel.route) { inclusive = true }
                 }
             }
+        }
+        if (!bookingViewModel.isAdminChecked) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryAccent)
+            }
+            return@Scaffold
         }
         if (!bookingViewModel.isAdmin) return@Scaffold
 
@@ -314,13 +327,27 @@ private fun ApprovedShowtimeCard(st: ShowtimeRequest) {
 
 // ─── Add Food Tab ────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddFoodTab(vm: BookingViewModel) {
+    val context = LocalContext.current
     var name        by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var price       by remember { mutableStateOf("") }
     var category    by remember { mutableStateOf("Snacks") }
-    var imageUrl    by remember { mutableStateOf("") }
+    var mlValue     by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var categoryExpanded by remember { mutableStateOf(false) }
+    val categoryOptions = listOf("Snacks", "Beverages", "Combos")
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            selectedImageUri = it
+            vm.uploadFoodImage(it, context)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -334,8 +361,91 @@ private fun AddFoodTab(vm: BookingViewModel) {
         AdminField("Item Name", name) { name = it }
         AdminField("Description", description) { description = it }
         AdminField("Price (₹)", price, keyboardType = KeyboardType.Number) { price = it }
-        AdminField("Category (Snacks / Beverages / Combos)", category) { category = it }
-        AdminField("Image URL (optional)", imageUrl) { imageUrl = it }
+
+        // ── Category Dropdown ────────────────────────────────────────────
+        ExposedDropdownMenuBox(
+            expanded = categoryExpanded,
+            onExpandedChange = { categoryExpanded = !categoryExpanded }
+        ) {
+            OutlinedTextField(
+                value = category,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Category", color = TextSecondary, fontSize = 12.sp) },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded)
+                },
+                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryAccent,
+                    unfocusedBorderColor = DividerColor,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    cursorColor = PrimaryAccent
+                ),
+                shape = RoundedCornerShape(10.dp)
+            )
+            ExposedDropdownMenu(
+                expanded = categoryExpanded,
+                onDismissRequest = { categoryExpanded = false }
+            ) {
+                categoryOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            category = option
+                            categoryExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // ── ML field for Beverages ───────────────────────────────────────
+        if (category == "Beverages") {
+            AdminField("Volume (ml)", mlValue, keyboardType = KeyboardType.Number) { mlValue = it }
+        }
+
+        // ── Image Picker ─────────────────────────────────────────────────
+        Text("Product Image", color = TextSecondary, fontSize = 12.sp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .border(1.dp, DividerColor, RoundedCornerShape(10.dp))
+                .clickable { imagePickerLauncher.launch("image/*") },
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                vm.foodImageUploading -> {
+                    CircularProgressIndicator(color = PrimaryAccent, modifier = Modifier.size(36.dp))
+                }
+                vm.foodImageUrl.isNotEmpty() -> {
+                    AsyncImage(
+                        model = vm.foodImageUrl,
+                        contentDescription = "Selected food image",
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                selectedImageUri != null -> {
+                    AsyncImage(
+                        model = selectedImageUri,
+                        contentDescription = "Selected food image",
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                else -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📷", fontSize = 32.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Tap to upload image", color = TextSecondary, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
 
         vm.adminActionError?.let { Text(it, color = PrimaryAccent, fontSize = 12.sp) }
         vm.adminActionSuccess?.let { Text(it, color = Color(0xFF2ECC71), fontSize = 12.sp) }
@@ -346,11 +456,16 @@ private fun AddFoodTab(vm: BookingViewModel) {
                     name = name.trim(),
                     description = description.trim(),
                     price = price.toIntOrNull() ?: 0,
-                    category = category.trim(),
-                    imageUrl = imageUrl.trim()
+                    category = category,
+                    imageUrl = vm.foodImageUrl,
+                    ml = if (category == "Beverages") (mlValue.toIntOrNull() ?: 0) else 0
                 )
+                // Reset fields after adding
+                name = ""; description = ""; price = ""; category = "Snacks"
+                mlValue = ""; selectedImageUri = null; vm.clearFoodImageUrl()
             },
             modifier = Modifier.fillMaxWidth(),
+            enabled = !vm.foodImageUploading,
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent),
             shape = RoundedCornerShape(12.dp)
         ) {

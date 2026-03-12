@@ -60,4 +60,5 @@ sealed class Screen(val route: String) {
     object AdminAddStreamingMovie : Screen("admin_add_streaming_movie")
     object AdminProfile : Screen("admin_profile")
     object TheatreOwnerProfile : Screen("theatre_owner_profile")
+    object Offers : Screen("offers")
 }

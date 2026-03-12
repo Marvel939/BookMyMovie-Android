@@ -157,6 +157,9 @@ private fun FoodItemCard(
                 if (item.description.isNotEmpty()) {
                     Text(item.description, color = TextSecondary, fontSize = 12.sp, maxLines = 2)
                 }
+                if (item.category == "Beverages" && item.ml > 0) {
+                    Text("${item.ml} ml", color = TextSecondary, fontSize = 11.sp)
+                }
                 Spacer(Modifier.height(4.dp))
                 Text("₹${item.price}", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }

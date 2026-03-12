@@ -32,7 +32,8 @@ data class FoodItem(
     val price: Int = 0,
     val category: String = "Snacks",  // Snacks | Beverages | Combos
     val imageUrl: String = "",
-    val available: Boolean = true
+    val available: Boolean = true,
+    val ml: Int = 0  // millilitres, used for Beverages
 )
 
 data class CartFoodItem(
