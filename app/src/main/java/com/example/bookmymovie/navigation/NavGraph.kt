@@ -171,6 +171,12 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.ChatHistory.route) {
             ChatHistoryScreen(navController)
         }
+        composable(Screen.MyRefunds.route) {
+            MyRefundsScreen(navController)
+        }
+        composable(Screen.MyWallet.route) {
+            MyWalletScreen(navController)
+        }
     }
 }
 

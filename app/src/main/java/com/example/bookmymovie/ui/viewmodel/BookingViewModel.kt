@@ -22,6 +22,7 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -66,6 +67,17 @@ class BookingViewModel : ViewModel() {
     // ── Payment state ───────────────────────────────────────────────────────
     var isRequestingPayment by mutableStateOf(false)
     var paymentError by mutableStateOf<String?>(null)
+    var pendingPaymentIntentId by mutableStateOf<String?>(null)
+    var walletBalance by mutableStateOf(0.0)
+        private set
+
+    // ── Refund state ────────────────────────────────────────────────────────
+    var isRefunding by mutableStateOf(false)
+        private set
+    var refundMessage by mutableStateOf<String?>(null)
+        private set
+    var refundError by mutableStateOf<String?>(null)
+        private set
 
     // ── My bookings ─────────────────────────────────────────────────────────
     var myBookings by mutableStateOf<List<Booking>>(emptyList())
@@ -89,7 +101,23 @@ class BookingViewModel : ViewModel() {
             (foodItems.find { it.itemId == itemId }?.price ?: 0) * qty
         }
 
-    val totalAmount: Int get() = seatAmount + foodAmount
+    val ticketGstRate: Int get() = 18
+
+    val ticketGstAmount: Int
+        get() = (seatAmount * (ticketGstRate / 100.0)).roundToInt()
+
+    val convenienceFeeAmount: Int
+        get() = if (seatAmount > 0) 30 else 0
+
+    val convenienceFeeGstAmount: Int
+        get() = (convenienceFeeAmount * 0.18).roundToInt()
+
+    val refundableAmount: Int get() = seatAmount + foodAmount
+
+    val nonRefundableAmount: Int get() = ticketGstAmount + convenienceFeeAmount + convenienceFeeGstAmount
+
+    val totalAmount: Int
+        get() = seatAmount + foodAmount + ticketGstAmount + convenienceFeeAmount + convenienceFeeGstAmount
 
     val cartItems: List<CartFoodItem>
         get() = foodCart.entries
@@ -244,13 +272,17 @@ class BookingViewModel : ViewModel() {
     fun fetchPaymentIntent(onSecret: (String) -> Unit, onError: (String) -> Unit) {
         isRequestingPayment = true
         paymentError = null
+        pendingPaymentIntentId = null
         val data = hashMapOf("amount" to totalAmount)
         Firebase.functions
             .getHttpsCallable("createPaymentIntent")
             .call(data)
             .addOnSuccessListener { result ->
-                val secret = (result.data as? Map<*, *>)?.get("clientSecret") as? String
+                val response = result.data as? Map<*, *>
+                val secret = response?.get("clientSecret") as? String
+                val paymentIntentId = response?.get("paymentIntentId") as? String
                 if (secret != null) {
+                    pendingPaymentIntentId = paymentIntentId
                     isRequestingPayment = false
                     onSecret(secret)
                 } else {
@@ -264,6 +296,54 @@ class BookingViewModel : ViewModel() {
                 isRequestingPayment = false
                 onError(e.message ?: "Payment setup failed")
             }
+    }
+
+    fun processWalletPayment(onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        isRequestingPayment = true
+        paymentError = null
+        val data = hashMapOf("amount" to totalAmount)
+        Firebase.functions
+            .getHttpsCallable("processWalletPayment")
+            .call(data)
+            .addOnSuccessListener { result ->
+                val response = result.data as? Map<*, *>
+                val walletTxId = response?.get("walletTxId") as? String
+                if (!walletTxId.isNullOrBlank()) {
+                    isRequestingPayment = false
+                    onSuccess(walletTxId)
+                } else {
+                    isRequestingPayment = false
+                    onError("Wallet payment failed")
+                }
+            }
+            .addOnFailureListener { e ->
+                paymentError = e.message
+                isRequestingPayment = false
+                onError(e.message ?: "Wallet payment failed")
+            }
+    }
+
+    fun loadWalletBalance() {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        FirebaseDatabase.getInstance().getReference("users").child(uid).child("walletBalance")
+            .get()
+            .addOnSuccessListener { snap ->
+                walletBalance = snap.getValue(Double::class.java) ?: 0.0
+            }
+            .addOnFailureListener {
+                walletBalance = 0.0
+            }
+    }
+
+    fun notifyPaymentFailure(movieName: String, amount: Int, reason: String) {
+        val data = hashMapOf(
+            "movieName" to movieName,
+            "amount" to amount,
+            "reason" to reason
+        )
+        Firebase.functions
+            .getHttpsCallable("notifyPaymentFailure")
+            .call(data)
     }
 
     // ── Send booking confirmation email ──────────────────────────────────────
@@ -352,11 +432,23 @@ class BookingViewModel : ViewModel() {
     }
 
     // ── Confirm booking & save to Firebase ──────────────────────────────────
-    fun confirmBooking(movieId: String, movieName: String, moviePoster: String) {
+    fun confirmBooking(
+        movieId: String,
+        movieName: String,
+        moviePoster: String,
+        paymentMethod: String = "stripe",
+        paymentReference: String? = null
+    ) {
         val showtime = selectedShowtime ?: return
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val userEmail = FirebaseAuth.getInstance().currentUser?.email ?: ""
         val userName = FirebaseAuth.getInstance().currentUser?.displayName ?: userEmail
+        val paymentIntentId = paymentReference ?: pendingPaymentIntentId
+
+        if (paymentIntentId.isNullOrBlank()) {
+            bookingError = "Missing payment confirmation. Please try payment again."
+            return
+        }
 
         isCreatingBooking = true
         bookingError = null
@@ -414,9 +506,18 @@ class BookingViewModel : ViewModel() {
                     seatAmount = seatAmount,
                     foodItems = foodList,
                     foodAmount = foodAmount,
+                    ticketGstRate = ticketGstRate,
+                    ticketGstAmount = ticketGstAmount,
+                    convenienceFeeAmount = convenienceFeeAmount,
+                    convenienceFeeGstAmount = convenienceFeeGstAmount,
                     totalAmount = totalAmount,
-                    paymentStatus = "confirmed",
+                    refundableAmount = refundableAmount,
+                    nonRefundableAmount = nonRefundableAmount,
+                    paymentIntentId = paymentIntentId,
+                    paymentMethod = paymentMethod,
+                    paymentStatus = "paid",
                     status = "confirmed",
+                    refundStatus = "none",
                     bookedAt = System.currentTimeMillis()
                 )
 
@@ -431,6 +532,7 @@ class BookingViewModel : ViewModel() {
                         isCreatingBooking = false
                         sendBookingEmail(booking)
                         sendBookingWhatsApp(booking)
+                        pendingPaymentIntentId = null
                         // Reset selection state
                         selectedSeats = emptySet()
                         selectedFormat = ""
@@ -472,9 +574,21 @@ class BookingViewModel : ViewModel() {
         "seatAmount" to b.seatAmount,
         "foodItems" to b.foodItems.mapIndexed { i, f -> i.toString() to f }.toMap(),
         "foodAmount" to b.foodAmount,
+        "ticketGstRate" to b.ticketGstRate,
+        "ticketGstAmount" to b.ticketGstAmount,
+        "convenienceFeeAmount" to b.convenienceFeeAmount,
+        "convenienceFeeGstAmount" to b.convenienceFeeGstAmount,
         "totalAmount" to b.totalAmount,
+        "refundableAmount" to b.refundableAmount,
+        "nonRefundableAmount" to b.nonRefundableAmount,
+        "paymentIntentId" to b.paymentIntentId,
+        "paymentMethod" to b.paymentMethod,
         "paymentStatus" to b.paymentStatus,
         "status" to b.status,
+        "refundStatus" to b.refundStatus,
+        "refundReason" to b.refundReason,
+        "refundId" to b.refundId,
+        "refundedAt" to b.refundedAt,
         "bookedAt" to b.bookedAt
     )
 
@@ -489,6 +603,13 @@ class BookingViewModel : ViewModel() {
                         try {
                             val seats = child.child("seats").children
                                 .mapNotNull { it.getValue(String::class.java) }
+                            val seatAmount = child.child("seatAmount").getValue(Int::class.java) ?: 0
+                            val foodAmount = child.child("foodAmount").getValue(Int::class.java) ?: 0
+                            val ticketGstAmount = child.child("ticketGstAmount").getValue(Int::class.java) ?: 0
+                            val convenienceFeeAmount = child.child("convenienceFeeAmount").getValue(Int::class.java) ?: 0
+                            val convenienceFeeGstAmount = child.child("convenienceFeeGstAmount").getValue(Int::class.java) ?: 0
+                            val fallbackRefundable = seatAmount + foodAmount
+                            val fallbackNonRefundable = ticketGstAmount + convenienceFeeAmount + convenienceFeeGstAmount
                             Booking(
                                 bookingId = child.child("bookingId").getValue(String::class.java) ?: "",
                                 userId = uid,
@@ -508,10 +629,23 @@ class BookingViewModel : ViewModel() {
                                 time = child.child("time").getValue(String::class.java) ?: "",
                                 language = child.child("language").getValue(String::class.java) ?: "English",
                                 seats = seats,
-                                seatAmount = child.child("seatAmount").getValue(Int::class.java) ?: 0,
-                                foodAmount = child.child("foodAmount").getValue(Int::class.java) ?: 0,
+                                seatAmount = seatAmount,
+                                foodAmount = foodAmount,
+                                ticketGstRate = child.child("ticketGstRate").getValue(Int::class.java) ?: 18,
+                                ticketGstAmount = ticketGstAmount,
+                                convenienceFeeAmount = convenienceFeeAmount,
+                                convenienceFeeGstAmount = convenienceFeeGstAmount,
                                 totalAmount = child.child("totalAmount").getValue(Int::class.java) ?: 0,
+                                refundableAmount = child.child("refundableAmount").getValue(Int::class.java) ?: fallbackRefundable,
+                                nonRefundableAmount = child.child("nonRefundableAmount").getValue(Int::class.java) ?: fallbackNonRefundable,
+                                paymentIntentId = child.child("paymentIntentId").getValue(String::class.java) ?: "",
+                                paymentMethod = child.child("paymentMethod").getValue(String::class.java) ?: "stripe",
+                                paymentStatus = child.child("paymentStatus").getValue(String::class.java) ?: "paid",
                                 status = child.child("status").getValue(String::class.java) ?: "confirmed",
+                                refundStatus = child.child("refundStatus").getValue(String::class.java) ?: "none",
+                                refundReason = child.child("refundReason").getValue(String::class.java) ?: "",
+                                refundId = child.child("refundId").getValue(String::class.java) ?: "",
+                                refundedAt = child.child("refundedAt").getValue(Long::class.java) ?: 0L,
                                 bookedAt = child.child("bookedAt").getValue(Long::class.java) ?: 0L
                             )
                         } catch (e: Exception) { null }
@@ -520,6 +654,33 @@ class BookingViewModel : ViewModel() {
                 }
                 override fun onCancelled(error: DatabaseError) { isLoadingMyBookings = false }
             })
+    }
+
+    fun requestRefund(bookingId: String, onComplete: (Boolean, String) -> Unit) {
+        if (bookingId.isBlank()) {
+            onComplete(false, "Invalid booking")
+            return
+        }
+        isRefunding = true
+        refundError = null
+        refundMessage = null
+
+        val data = hashMapOf("bookingId" to bookingId)
+        Firebase.functions
+            .getHttpsCallable("requestBookingRefund")
+            .call(data)
+            .addOnSuccessListener {
+                isRefunding = false
+                refundMessage = "Refund processed successfully"
+                loadMyBookings()
+                onComplete(true, refundMessage!!)
+            }
+            .addOnFailureListener { e ->
+                isRefunding = false
+                val msg = e.message ?: "Refund request failed"
+                refundError = msg
+                onComplete(false, msg)
+            }
     }
 
     // ── Admin: check if current user is admin ────────────────────────────────
@@ -686,6 +847,7 @@ class BookingViewModel : ViewModel() {
         selectedFormat = ""
         selectedLanguage = ""
         foodCart.clear()
+        pendingPaymentIntentId = null
         confirmedBooking = null
         bookingError = null
     }

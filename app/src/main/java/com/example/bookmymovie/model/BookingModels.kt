@@ -64,8 +64,20 @@ data class Booking(
     val seatAmount: Int = 0,
     val foodItems: List<Map<String, Any>> = emptyList(),
     val foodAmount: Int = 0,
+    val ticketGstRate: Int = 18,
+    val ticketGstAmount: Int = 0,
+    val convenienceFeeAmount: Int = 0,
+    val convenienceFeeGstAmount: Int = 0,
     val totalAmount: Int = 0,
+    val refundableAmount: Int = 0,
+    val nonRefundableAmount: Int = 0,
+    val paymentIntentId: String = "",
+    val paymentMethod: String = "stripe", // stripe | wallet
     val paymentStatus: String = "confirmed",
     val status: String = "confirmed",
+    val refundStatus: String = "none", // none | succeeded | failed
+    val refundReason: String = "",
+    val refundId: String = "",
+    val refundedAt: Long = 0L,
     val bookedAt: Long = 0L
 )

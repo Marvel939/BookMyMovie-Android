@@ -1,5 +1,6 @@
 package com.example.bookmymovie.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,6 +77,49 @@ private fun BookingHistoryCard(
     booking: Booking,
     bookingViewModel: BookingViewModel
 ) {
+    val context = LocalContext.current
+    var showRefundDialog by remember { mutableStateOf(false) }
+
+    if (showRefundDialog) {
+        AlertDialog(
+            onDismissRequest = { showRefundDialog = false },
+            containerColor = CardBackground,
+            title = { Text("Request Refund", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Amount Paid: ₹${booking.totalAmount}", color = TextPrimary, fontSize = 13.sp)
+                    Text("Refundable (Seats + Food): ₹${booking.refundableAmount}", color = TextPrimary, fontSize = 13.sp)
+                    Text("Non-refundable (GST + Convenience): ₹${booking.nonRefundableAmount}", color = TextSecondary, fontSize = 12.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Proceed with refund request?", color = TextSecondary, fontSize = 12.sp)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        bookingViewModel.requestRefund(booking.bookingId) { ok, msg ->
+                            showRefundDialog = false
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    enabled = !bookingViewModel.isRefunding,
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
+                ) {
+                    if (bookingViewModel.isRefunding) {
+                        CircularProgressIndicator(color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                    } else {
+                        Text("Confirm")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRefundDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+        )
+    }
+
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = CardBackground,
@@ -114,6 +159,19 @@ private fun BookingHistoryCard(
                         fontSize = 12.sp
                     )
                     Text("₹${booking.totalAmount}", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+
+                if (booking.status == "confirmed" && booking.refundStatus != "succeeded") {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showRefundDialog = true },
+                        enabled = !bookingViewModel.isRefunding,
+                        border = ButtonDefaults.outlinedButtonBorder,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Request Refund", color = PrimaryAccent, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }

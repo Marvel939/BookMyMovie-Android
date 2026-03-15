@@ -39,18 +39,36 @@ fun BookingSummaryScreen(
     val selectedSeats   = bookingViewModel.seats.values.filter { it.seatId in selectedSeatIds }
     val cartItems       = bookingViewModel.cartItems
     var paymentSheetError by remember { mutableStateOf<String?>(null) }
+    var selectedPaymentMethod by remember { mutableStateOf("stripe") }
+
+    LaunchedEffect(selectedPaymentMethod) {
+        if (selectedPaymentMethod == "wallet") {
+            bookingViewModel.loadWalletBalance()
+        }
+    }
 
     val paymentSheet = rememberPaymentSheet { result ->
         when (result) {
             is PaymentSheetResult.Completed -> {
                 paymentSheetError = null
                 showtime?.let {
-                    bookingViewModel.confirmBooking(it.movieId, it.movieName, it.moviePoster)
+                    bookingViewModel.confirmBooking(
+                        movieId = it.movieId,
+                        movieName = it.movieName,
+                        moviePoster = it.moviePoster,
+                        paymentMethod = "stripe"
+                    )
                 }
             }
             is PaymentSheetResult.Canceled -> { /* user closed sheet — do nothing */ }
             is PaymentSheetResult.Failed -> {
-                paymentSheetError = result.error.message ?: "Payment failed"
+                val reason = result.error.message ?: "Payment failed"
+                paymentSheetError = reason
+                bookingViewModel.notifyPaymentFailure(
+                    movieName = showtime?.movieName ?: "Movie",
+                    amount = bookingViewModel.totalAmount,
+                    reason = reason
+                )
             }
         }
     }
@@ -86,29 +104,99 @@ fun BookingSummaryScreen(
                             Text("Food & Beverages", color = TextSecondary)
                             Text("₹${bookingViewModel.foodAmount}", color = TextPrimary)
                         }
+                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                            Text("GST @ ${bookingViewModel.ticketGstRate}% (Ticket)", color = TextSecondary)
+                            Text("₹${bookingViewModel.ticketGstAmount}", color = TextPrimary)
+                        }
+                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                            Text("Convenience Fee", color = TextSecondary)
+                            Text("₹${bookingViewModel.convenienceFeeAmount}", color = TextPrimary)
+                        }
+                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                            Text("GST on Convenience Fee", color = TextSecondary)
+                            Text("₹${bookingViewModel.convenienceFeeGstAmount}", color = TextPrimary)
+                        }
                         Spacer(Modifier.height(6.dp))
                         HorizontalDivider(color = DividerColor)
                         Spacer(Modifier.height(6.dp))
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                            Text("Total", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Total Payable", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Text("₹${bookingViewModel.totalAmount}", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text("Payment Method", color = TextSecondary, fontSize = 12.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = selectedPaymentMethod == "stripe",
+                                onClick = { selectedPaymentMethod = "stripe" }
+                            )
+                            Text("Stripe", color = TextPrimary, fontSize = 13.sp)
+                            Spacer(Modifier.width(14.dp))
+                            RadioButton(
+                                selected = selectedPaymentMethod == "wallet",
+                                onClick = { selectedPaymentMethod = "wallet" }
+                            )
+                            Text("My Wallet", color = TextPrimary, fontSize = 13.sp)
+                        }
+                        if (selectedPaymentMethod == "wallet") {
+                            Spacer(Modifier.height(4.dp))
+                            val available = bookingViewModel.walletBalance
+                            Text(
+                                text = "Available Balance: ₹${"%.2f".format(available)}",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
                         }
                         Spacer(Modifier.height(12.dp))
                         val isBusy = bookingViewModel.isCreatingBooking || bookingViewModel.isRequestingPayment
                         Button(
                             onClick = {
                                 paymentSheetError = null
-                                bookingViewModel.fetchPaymentIntent(
-                                    onSecret = { clientSecret ->
-                                        paymentSheet.presentWithPaymentIntent(
-                                            clientSecret,
-                                            PaymentSheet.Configuration(
-                                                merchantDisplayName = "BookMyMovie"
+                                if (selectedPaymentMethod == "wallet") {
+                                    showtime?.let {
+                                        if (bookingViewModel.walletBalance < bookingViewModel.totalAmount.toDouble()) {
+                                            val reason = "Not enough amount in wallet"
+                                            paymentSheetError = reason
+                                            bookingViewModel.notifyPaymentFailure(
+                                                movieName = it.movieName,
+                                                amount = bookingViewModel.totalAmount,
+                                                reason = reason
                                             )
+                                            return@let
+                                        }
+                                        bookingViewModel.processWalletPayment(
+                                            onSuccess = { walletTxId ->
+                                                bookingViewModel.confirmBooking(
+                                                    movieId = it.movieId,
+                                                    movieName = it.movieName,
+                                                    moviePoster = it.moviePoster,
+                                                    paymentMethod = "wallet",
+                                                    paymentReference = walletTxId
+                                                )
+                                            },
+                                            onError = { err ->
+                                                paymentSheetError = err
+                                                bookingViewModel.notifyPaymentFailure(
+                                                    movieName = it.movieName,
+                                                    amount = bookingViewModel.totalAmount,
+                                                    reason = err
+                                                )
+                                            }
                                         )
-                                    },
-                                    onError = { err -> paymentSheetError = err }
-                                )
+                                    }
+                                } else {
+                                    bookingViewModel.fetchPaymentIntent(
+                                        onSecret = { clientSecret ->
+                                            paymentSheet.presentWithPaymentIntent(
+                                                clientSecret,
+                                                PaymentSheet.Configuration(
+                                                    merchantDisplayName = "BookMyMovie"
+                                                )
+                                            )
+                                        },
+                                        onError = { err -> paymentSheetError = err }
+                                    )
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent),
@@ -118,7 +206,12 @@ fun BookingSummaryScreen(
                             if (isBusy) {
                                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             } else {
-                                Text("Confirm & Pay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(
+                                    if (selectedPaymentMethod == "wallet") "Confirm & Pay with Wallet" else "Confirm & Pay",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
                             }
                         }
                     }
