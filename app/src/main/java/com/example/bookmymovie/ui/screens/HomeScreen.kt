@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.example.bookmymovie.MainActivity
 import com.example.bookmymovie.navigation.Screen
+import com.example.bookmymovie.ui.components.AiChatBotOverlay
 import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.MovieViewModel
 import com.example.bookmymovie.ui.viewmodel.NearbyTheatresViewModel
@@ -195,68 +196,80 @@ fun HomeScreen(
         },
         containerColor = DeepCharcoal
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = movieViewModel.isLoading,
-            onRefresh = { movieViewModel.loadMovies() },
-            modifier = Modifier.padding(padding)
-        ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            if (movieViewModel.isLoading) {
-                Box(
+        // Wrap content + chatbot overlay in a Box so the FAB floats above everything
+        Box(modifier = Modifier.fillMaxSize()) {
+            PullToRefreshBox(
+                isRefreshing = movieViewModel.isLoading,
+                onRefresh = { movieViewModel.loadMovies() },
+                modifier = Modifier.padding(padding)
+            ) {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp),
-                    contentAlignment = Alignment.Center
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    CircularProgressIndicator(color = PrimaryAccent)
-                }
-            } else if (movieViewModel.errorMessage != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            movieViewModel.errorMessage ?: "Error loading movies",
-                            color = TextSecondary,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = { movieViewModel.loadMovies() },
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent),
-                            shape = RoundedCornerShape(24.dp)
+                    if (movieViewModel.isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Retry")
+                            CircularProgressIndicator(color = PrimaryAccent)
                         }
+                    } else if (movieViewModel.errorMessage != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    movieViewModel.errorMessage ?: "Error loading movies",
+                                    color = TextSecondary,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = { movieViewModel.loadMovies() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent),
+                                    shape = RoundedCornerShape(24.dp)
+                                ) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    } else {
+                        BannerCarousel(movieViewModel.nowPlayingMovies, navController)
+                        Spacer(modifier = Modifier.height(28.dp))
+                        MovieSection("Now Showing", movieViewModel.nowPlayingMovies, navController)
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        // Streaming Highlight Row
+                        StreamingHighlightRow(
+                            movies = streamingViewModel.highlightMovies,
+                            navController = navController
+                        )
+
+                        ComingSoonSection("Coming Soon", movieViewModel.upcomingMovies, navController)
+                        Spacer(modifier = Modifier.height(28.dp))
+                        MovieSection("Popular", movieViewModel.popularMovies, navController)
+                        Spacer(modifier = Modifier.height(28.dp))
+                        MovieSection("Top Rated", movieViewModel.topRatedMovies, navController)
+                        Spacer(modifier = Modifier.height(20.dp))
                     }
                 }
-            } else {
-                BannerCarousel(movieViewModel.nowPlayingMovies, navController)
-                Spacer(modifier = Modifier.height(28.dp))
-                MovieSection("Now Showing", movieViewModel.nowPlayingMovies, navController)
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // Streaming Highlight Row
-                StreamingHighlightRow(
-                    movies = streamingViewModel.highlightMovies,
-                    navController = navController
-                )
-
-                ComingSoonSection("Coming Soon", movieViewModel.upcomingMovies, navController)
-                Spacer(modifier = Modifier.height(28.dp))
-                MovieSection("Popular", movieViewModel.popularMovies, navController)
-                Spacer(modifier = Modifier.height(28.dp))
-                MovieSection("Top Rated", movieViewModel.topRatedMovies, navController)
-                Spacer(modifier = Modifier.height(20.dp))
             }
-        }
+
+            // ── AI Chatbot Overlay (bottom-right) ──────────────────────────────
+            AiChatBotOverlay(
+                userId = userId,
+                navController = navController,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = padding.calculateBottomPadding())
+            )
         }
     }
 }

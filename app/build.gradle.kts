@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp.logging)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.play.services.location)
     implementation(libs.accompanist.pager.indicators)
     implementation("com.stripe:stripe-android:20.40.0")

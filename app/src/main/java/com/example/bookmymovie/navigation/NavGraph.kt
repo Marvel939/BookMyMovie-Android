@@ -165,6 +165,12 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Offers.route) {
             OffersScreen(navController)
         }
+        composable(Screen.AiChat.route) {
+            AiChatScreen(navController)
+        }
+        composable(Screen.ChatHistory.route) {
+            ChatHistoryScreen(navController)
+        }
     }
 }
 
