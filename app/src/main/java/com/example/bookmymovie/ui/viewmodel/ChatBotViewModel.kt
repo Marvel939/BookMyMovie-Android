@@ -38,9 +38,16 @@ import java.util.concurrent.TimeUnit
 class ChatBotViewModel : ViewModel() {
 
     companion object {
-        private const val OPENROUTER_API_KEY = "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"
         private const val OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
         private const val MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+        
+        fun getOpenRouterKey(context: Context): String {
+            return try {
+                context.assets.open("openrouter.key").bufferedReader().use { it.readText().trim() }
+            } catch (e: Exception) {
+                "" // Fallback if file is missing
+            }
+        }
     }
 
     // ── Current session ───────────────────────────────────────────────────────
@@ -309,7 +316,7 @@ class ChatBotViewModel : ViewModel() {
                 val request = Request.Builder()
                     .url(OPENROUTER_BASE_URL)
                     .post(body.toString().toRequestBody("application/json".toMediaType()))
-                    .addHeader("Authorization", "Bearer $OPENROUTER_API_KEY")
+                    .addHeader("Authorization", "Bearer ${getOpenRouterKey(context)}")
                     .addHeader("Content-Type", "application/json")
                     .addHeader("HTTP-Referer", "https://bookmymovie.app")
                     .addHeader("X-Title", "BookMyMovie AI Assistant")
