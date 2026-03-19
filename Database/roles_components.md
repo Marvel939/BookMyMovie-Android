@@ -15,7 +15,7 @@
 
 <!-- Header Row 2: Secondary Colors -->
   <tr>
-    <th rowspan="2" style="background-color: #78909c; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">Guest</th>
+    <th rowspan="2" style="background-color: #78909c; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">System Features</th>
     <th colspan="2" style="background-color: #e0e0e0; color: black; width: 50%; font-size: 16px; border: 1px solid #666;">User</th>
     <th style="background-color: #4285f4; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">Admin</th>
   </tr>
@@ -27,71 +27,58 @@
     <th style="background-color: #bbdefb; color: black; border: 1px solid #666; width: 25%;">Admin</th>
   </tr>
 
-<!-- Row 1: Landing -->
+<!-- Row 1: Authentication -->
   <tr>
-    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Landing / Home Page</td>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Registration & Access</td>
     <td style="background-color: #fff; border: 1px solid #666;">
-      Authentication System<br>(Sign-up, Sign-in, Logout)<br>Forgot / Reset Password
+      Sign-up / Sign-in<br>Manage User Profile (City, DOB)
     </td>
     <td style="background-color: #fff; border: 1px solid #666;">
-      Partner Authentication<br>(Sign-up, Sign-in, Logout)<br>Forgot / Reset Password
+      B2B Sign-up (Requires Approval)<br>Manage Partner Credentials
     </td>
     <td style="background-color: #fff; border: 1px solid #666;">
-      Admin Secure Portal<br>(Sign-in, Logout)<br>Forgot / Reset Password
+      Secure Sign-in<br>Approve / Reject Theatre Registrations
     </td>
   </tr>
 
-<!-- Row 2: Dashboard -->
+<!-- Row 2: Cinema Architecture -->
   <tr>
-    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Dashboards & Booking</td>
-    <td style="background-color: #fff; border: 1px solid #666;">User Bookings Dashboard</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Live Cinema Dashboard</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Global Master Dashboard</td>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Cinemas & Infrastructure</td>
+    <td style="background-color: #fff; border: 1px solid #666;">View Cinema Locations & Photos<br>Search nearby Theatres</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Register Physical Cinema Data<br>Configure Interactive Seat Layouts</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Global Master Control Over All Registered Theatres</td>
   </tr>
 
-<!-- Row 3: Profiles -->
+<!-- Row 3: Concessions -->
   <tr>
-    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Profile Management</td>
-    <td style="background-color: #fff; border: 1px solid #666;">User Profile & Preferences</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Cinema Location & Layout Settings</td>
-    <td style="background-color: #fff; border: 1px solid #666;">System Settings & Users Management</td>
-  </tr>
-
-<!-- Row 4: Pricings -->
-  <tr>
-    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Pricings & Payments</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Payment Integration (Stripe)<br>Convenience Fee & GST</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Configure Seat Pricing<br>(Platinum, Gold, Silver)</td>
-    <td style="background-color: #fff; border: 1px solid #666; color: #999;">N/A</td>
-  </tr>
-
-<!-- Row 5: Interaction Features -->
-  <tr>
-    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">System Actions & Features</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Select Seats & Order Food<br>Add Movies to Wishlist</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Design Screen Layouts<br>Manage Full Food Menu</td>
-    <td rowspan="2" style="background-color: #fff; border: 1px solid #666;">Can Manage Everything<br>Approve / Reject Cinema Theatres<br>Approve / Reject Showtimes</td>
-  </tr>
-
-<!-- Row 6: Streaming OTT -->
-  <tr>
-    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Streaming (OTT Digital)</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Buy/Rent Exclusive Title<br>Watch from Digital User Library</td>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Concessions & Add-ons</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Order Food & Drinks to cart<br>Pay bundled in Invoice</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Create Full Food Menu<br>Set Snack Categories & Pricing</td>
     <td style="background-color: #fff; border: 1px solid #666;">N/A</td>
   </tr>
-  
-<!-- Row 7: AI Integration -->
+
+<!-- Row 4: The Booking Engine -->
   <tr>
-    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Recommendations & Contact</td>
-    <td style="background-color: #fff; border: 1px solid #666;">AI Chatbot Assistant<br>Publish Public Movie Reviews</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Read Aggregate Ratings<br>Help & Support Tickets</td>
-    <td style="background-color: #fff; border: 1px solid #666; color: #999;">N/A</td>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Showtiming & Ticket Bookings</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Pick Showtime & Reserve Seats<br>Stripe Payment (Refunds & GST)<br>Generate Digital Ticket</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Submit 'Showtime Requests' to Admin<br>Configure Platinum/Gold/Silver Pricing</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Publish Central Movie Master Database<br>Approve / Reject Showtime Requests</td>
+  </tr>
+
+<!-- Row 5: Streaming OTT -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Streaming (Digital OTT)</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Buy/Rent Digital Direct-to-home Titles<br>Watch from Expiring Video Library</td>
+    <td style="background-color: #fff; border: 1px solid #666;">N/A</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Upload & Publish Streaming Catalog<br>Set Streaming/Rent Window Restrictions</td>
   </tr>
   
+<!-- Row 6: Interaction & Advanced Settings -->
   <tr>
-    <td colspan="4" align="center" style="background-color: #f1f3f4; padding: 10px; font-style: italic; border: 1px solid #666;">
-       Additional modules will be introduced as the BookMyMovie platform scales...
-    </td>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Interaction & Account Scaling</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Chat with BookMyMovie AI Assistant<br>Publish Movie Reviews & Wishlists</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Upload Cinema Imagery & Galleries<br>Track Real-Time Application Approvals</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Onboard System Co-Administrators<br>Perform Global Database Moderation</td>
   </tr>
 
 </table>
