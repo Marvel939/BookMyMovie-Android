@@ -17,14 +17,13 @@
   <tr>
     <th rowspan="2" style="background-color: #78909c; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">Guest</th>
     <th colspan="2" style="background-color: #e0e0e0; color: black; width: 50%; font-size: 16px; border: 1px solid #666;">User</th>
-    <th style="background-color: #4285f4; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">Admin</th>
+    <th rowspan="2" style="background-color: #4285f4; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">Admin</th>
   </tr>
 
 <!-- Header Row 3: Tertiary Colors -->
   <tr>
-    <th style="background-color: #ffe0b2; color: black; border: 1px solid #666;">Customer</th>
-    <th style="background-color: #c8e6c9; color: black; border: 1px solid #666;">Theatre Owner</th>
-    <th style="background-color: #ffcdd2; color: black; border: 1px solid #666;">Super Admin</th>
+    <th style="background-color: #ffe0b2; color: black; border: 1px solid #666; width: 25%;">Customer</th>
+    <th style="background-color: #c8e6c9; color: black; border: 1px solid #666; width: 25%;">Theatre Owner</th>
   </tr>
 
 <!-- Row 1: Landing -->
