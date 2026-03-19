@@ -17,13 +17,14 @@
   <tr>
     <th rowspan="2" style="background-color: #78909c; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">Guest</th>
     <th colspan="2" style="background-color: #e0e0e0; color: black; width: 50%; font-size: 16px; border: 1px solid #666;">User</th>
-    <th rowspan="2" style="background-color: #4285f4; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">Admin</th>
+    <th style="background-color: #4285f4; color: white; width: 25%; font-size: 16px; border: 1px solid #666;">Admin</th>
   </tr>
 
 <!-- Header Row 3: Tertiary Colors -->
   <tr>
     <th style="background-color: #ffe0b2; color: black; border: 1px solid #666; width: 25%;">Customer</th>
     <th style="background-color: #c8e6c9; color: black; border: 1px solid #666; width: 25%;">Theatre Owner</th>
+    <th style="background-color: #bbdefb; color: black; border: 1px solid #666; width: 25%;">Admin</th>
   </tr>
 
 <!-- Row 1: Landing -->
@@ -61,7 +62,7 @@
     <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Pricings & Payments</td>
     <td style="background-color: #fff; border: 1px solid #666;">Payment Integration (Stripe)<br>Convenience Fee & GST</td>
     <td style="background-color: #fff; border: 1px solid #666;">Configure Seat Pricing<br>(Platinum, Gold, Silver)</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Global Price Policies<br>& Revenue Overviews</td>
+    <td style="background-color: #fff; border: 1px solid #666; color: #999;">N/A</td>
   </tr>
 
 <!-- Row 5: Interaction Features -->
@@ -84,7 +85,7 @@
     <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Recommendations & Contact</td>
     <td style="background-color: #fff; border: 1px solid #666;">AI Chatbot Assistant<br>Publish Public Movie Reviews</td>
     <td style="background-color: #fff; border: 1px solid #666;">Read Aggregate Ratings<br>Help & Support Tickets</td>
-    <td style="background-color: #fff; border: 1px solid #666;">Manage OpenRouter API Keys<br>API Endpoints Cost & Usage</td>
+    <td style="background-color: #fff; border: 1px solid #666; color: #999;">N/A</td>
   </tr>
   
   <tr>
