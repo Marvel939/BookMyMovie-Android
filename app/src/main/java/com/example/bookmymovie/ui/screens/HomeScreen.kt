@@ -34,10 +34,12 @@ import coil.compose.AsyncImage
 import com.example.bookmymovie.MainActivity
 import com.example.bookmymovie.navigation.Screen
 import com.example.bookmymovie.ui.components.AiChatBotOverlay
+import com.example.bookmymovie.ui.components.OfferCard
 import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.MovieViewModel
 import com.example.bookmymovie.ui.viewmodel.NearbyTheatresViewModel
 import com.example.bookmymovie.ui.viewmodel.StreamingViewModel
+import com.example.bookmymovie.ui.viewmodel.OffersViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -51,7 +53,8 @@ import kotlinx.coroutines.yield
 fun HomeScreen(
     navController: NavController,
     movieViewModel: MovieViewModel = viewModel(),
-    streamingViewModel: StreamingViewModel = viewModel()
+    streamingViewModel: StreamingViewModel = viewModel(),
+    offersViewModel: OffersViewModel = viewModel()
 ) {
     val nearbyTheatresViewModel: NearbyTheatresViewModel =
         viewModel(LocalContext.current as MainActivity)
@@ -242,6 +245,8 @@ fun HomeScreen(
                         }
                     } else {
                         BannerCarousel(movieViewModel.nowPlayingMovies, navController)
+                        Spacer(modifier = Modifier.height(28.dp))
+                        OffersBannerCarousel(offersViewModel, navController)
                         Spacer(modifier = Modifier.height(28.dp))
                         MovieSection("Now Showing", movieViewModel.nowPlayingMovies, navController)
                         Spacer(modifier = Modifier.height(28.dp))
@@ -669,5 +674,54 @@ private fun StreamingMovieCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+private fun OffersBannerCarousel(
+    offersViewModel: OffersViewModel,
+    navController: NavController
+) {
+    val carouselOffers by offersViewModel.carouselOffers.collectAsState()
+    
+    if (carouselOffers.isEmpty()) return
+    
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Special Offers",
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+            TextButton(
+                onClick = { navController.navigate(Screen.Offers.route) }
+            ) {
+                Text("View All", color = PrimaryAccent, fontSize = 13.sp)
+            }
+        }
+        
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(carouselOffers) { offer ->
+                OfferCard(
+                    offer = offer,
+                    onClick = {
+                        navController.navigate(Screen.OfferDetail.createRoute(it.id))
+                    },
+                    modifier = Modifier
+                        .width(160.dp)
+                )
+            }
+        }
     }
 }

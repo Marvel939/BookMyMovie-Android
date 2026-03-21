@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ScreenShare
@@ -77,6 +78,11 @@ fun TheatreOwnerPanelScreen(navController: NavController) {
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        navController.navigate(Screen.TheatreOwnerCreateOffer.route)
+                    }) {
+                        Icon(Icons.Default.LocalOffer, "Create Offer", tint = PrimaryAccent)
+                    }
                     IconButton(onClick = {
                         navController.navigate(Screen.TheatreOwnerProfile.route)
                     }) {

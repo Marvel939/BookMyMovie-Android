@@ -6,6 +6,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bookmymovie.firebase.FirebaseMovieRepository
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.example.bookmymovie.model.LocalMovie
 import com.example.bookmymovie.model.Showtime
 import com.example.bookmymovie.model.Theatre
@@ -44,7 +48,46 @@ class TheatreViewModel : ViewModel() {
             isLoading = true
             errorMessage = null
             try {
-                theatres = FirebaseMovieRepository.getTheatresInCity(city)
+                // Primary source: theatres/{city}
+                val fetched = FirebaseMovieRepository.getTheatresInCity(city)
+                if (fetched.isNotEmpty()) {
+                    theatres = fetched
+                } else {
+                    // Fallback: some projects (and your exported DB) store cinemas under `cinemas`.
+                    // Read cinemas and map them to Theatre model so dropdown works.
+                    try {
+                        val ref = FirebaseDatabase.getInstance().getReference("cinemas")
+                        ref.addListenerForSingleValueEvent(object : ValueEventListener {
+                            override fun onDataChange(snapshot: DataSnapshot) {
+                                val mapped = snapshot.children.mapNotNull { child ->
+                                    val name = child.child("name").getValue(String::class.java) ?: return@mapNotNull null
+                                    val address = child.child("address").getValue(String::class.java) ?: ""
+                                    val lat = child.child("lat").getValue(Double::class.java) ?: 0.0
+                                    val lng = child.child("lng").getValue(Double::class.java) ?: 0.0
+                                    // If city filter looks meaningful (not numeric or blank), try to match address
+                                    if (city.isNotBlank() && city.any { it.isLetter() }) {
+                                        if (!address.contains(city, ignoreCase = true)) return@mapNotNull null
+                                    }
+                                    com.example.bookmymovie.model.Theatre(
+                                        theatreId = child.key ?: "",
+                                        name = name,
+                                        address = address,
+                                        latitude = lat,
+                                        longitude = lng,
+                                        city = city
+                                    )
+                                }
+                                theatres = mapped
+                            }
+
+                            override fun onCancelled(error: DatabaseError) {
+                                errorMessage = "Failed to load theatres from cinemas: ${error.message}"
+                            }
+                        })
+                    } catch (e: Exception) {
+                        errorMessage = "Failed to load theatres fallback: ${e.message}"
+                    }
+                }
             } catch (e: Exception) {
                 errorMessage = "Failed to load theatres: ${e.message}"
             } finally {

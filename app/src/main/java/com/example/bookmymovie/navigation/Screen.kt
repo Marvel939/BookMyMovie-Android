@@ -61,6 +61,13 @@ sealed class Screen(val route: String) {
     object AdminProfile : Screen("admin_profile")
     object TheatreOwnerProfile : Screen("theatre_owner_profile")
     object Offers : Screen("offers")
+    object OfferDetail : Screen("offer_detail/{offerId}") {
+        fun createRoute(offerId: String) = "offer_detail/$offerId"
+    }
+    object AdminOfferApproval : Screen("admin_offer_approval")
+    object TheatreOwnerCreateOffer : Screen("theatre_owner_create_offer")
+    object AdminCreateOffer : Screen("admin_create_offer")
+    object TheatreOwnerOfferHistory : Screen("theatre_owner_offer_history")
     object AiChat : Screen("ai_chat")
     object ChatHistory : Screen("chat_history")
     object MyRefunds : Screen("my_refunds")
