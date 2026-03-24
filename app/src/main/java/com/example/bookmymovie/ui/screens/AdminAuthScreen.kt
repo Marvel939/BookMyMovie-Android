@@ -492,42 +492,32 @@ private fun saveAdminToFirebase(
 
 @Composable
 private fun AdminTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    isPassword: Boolean = false,
-    passwordVisible: Boolean = false,
+    value: String, onValueChange: (String) -> Unit, label: String,
+    isPassword: Boolean = false, passwordVisible: Boolean = false,
     onTogglePassword: (() -> Unit)? = null
 ) {
     OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = value, onValueChange = onValueChange,
         label = { Text(label, color = TextSecondary) },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         singleLine = true,
-        visualTransformation = if (isPassword && !passwordVisible)
-            PasswordVisualTransformation() else VisualTransformation.None,
+        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
         trailingIcon = if (isPassword && onTogglePassword != null) {
             {
                 IconButton(onClick = onTogglePassword) {
                     Icon(
                         imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = null,
-                        tint = TextSecondary
+                        contentDescription = null, tint = TextSecondary
                     )
                 }
             }
         } else null,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PrimaryAccent,
-            unfocusedBorderColor = DividerColor,
-            cursorColor = PrimaryAccent,
-            focusedLabelColor = PrimaryAccent,
-            unfocusedLabelColor = TextSecondary,
-            focusedContainerColor = CardBackground,
-            unfocusedContainerColor = CardBackground,
-            focusedTextColor = TextPrimary,
+            focusedBorderColor = PrimaryAccent, unfocusedBorderColor = DividerColor,
+            cursorColor = PrimaryAccent, focusedLabelColor = PrimaryAccent,
+            unfocusedLabelColor = TextSecondary, focusedContainerColor = CardBackground,
+            unfocusedContainerColor = CardBackground, focusedTextColor = TextPrimary,
             unfocusedTextColor = TextPrimary
         )
     )

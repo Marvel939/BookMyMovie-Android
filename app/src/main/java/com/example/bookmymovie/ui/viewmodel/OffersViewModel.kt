@@ -26,6 +26,9 @@ class OffersViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _platformOffers = MutableStateFlow<List<Offer>>(emptyList())
+    val platformOffers: StateFlow<List<Offer>> = _platformOffers.asStateFlow()
+
     // Added fields for coupon checkout
     private val _appliedCoupon = MutableStateFlow<Offer?>(null)
     val appliedCoupon: StateFlow<Offer?> = _appliedCoupon.asStateFlow()
@@ -54,6 +57,7 @@ class OffersViewModel : ViewModel() {
                     }
                 }
                 _allOffers.value = offersList
+                _platformOffers.value = offersList.filter { it.getCategoryEnum() == OfferCategory.PLATFORM_WIDE }
                 applyFilter(_selectedCategory.value)
                 _isLoading.value = false
             }
@@ -92,19 +96,20 @@ class OffersViewModel : ViewModel() {
         }
 
         // Strict validation: Theatre & Movie Check
-        if (offer.getCategoryEnum() == OfferCategory.THEATRE_SPECIFIC || offer.getCategoryEnum() == OfferCategory.MOVIE_SPECIFIC) {
-            if (offer.theatreId != theatreId) {
+        if (offer.getCategoryEnum() == OfferCategory.THEATRE_SPECIFIC || 
+            offer.getCategoryEnum() == OfferCategory.MOVIE_SPECIFIC ||
+            offer.getCategoryEnum() == OfferCategory.PLATFORM_WIDE) {
+            
+            if (offer.theatreId.isNotEmpty() && offer.theatreId != theatreId) {
                 _errorMessage.value = "This coupon code is not valid for this theatre."
                 _isApplying.value = false
                 return
             }
             
-            if (offer.getCategoryEnum() == OfferCategory.MOVIE_SPECIFIC) {
-                if (offer.movieId.isNotEmpty() && offer.movieId != movieId) {
-                    _errorMessage.value = "This coupon code is not valid for this movie."
-                    _isApplying.value = false
-                    return
-                }
+            if (offer.movieId.isNotEmpty() && offer.movieId != movieId) {
+                _errorMessage.value = "This coupon code is not valid for this movie."
+                _isApplying.value = false
+                return
             }
         }
 

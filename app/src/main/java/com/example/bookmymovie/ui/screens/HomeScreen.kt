@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +39,7 @@ import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.MovieViewModel
 import com.example.bookmymovie.ui.viewmodel.NearbyTheatresViewModel
 import com.example.bookmymovie.ui.viewmodel.StreamingViewModel
+import com.example.bookmymovie.ui.viewmodel.OffersViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -51,7 +53,8 @@ import kotlinx.coroutines.yield
 fun HomeScreen(
     navController: NavController,
     movieViewModel: MovieViewModel = viewModel(),
-    streamingViewModel: StreamingViewModel = viewModel()
+    streamingViewModel: StreamingViewModel = viewModel(),
+    offersViewModel: OffersViewModel = viewModel()
 ) {
     val nearbyTheatresViewModel: NearbyTheatresViewModel =
         viewModel(LocalContext.current as MainActivity)
@@ -252,6 +255,9 @@ fun HomeScreen(
                             navController = navController
                         )
 
+                        // Platform Offers Section
+                        PlatformOffersSection(offersViewModel, navController)
+                        
                         ComingSoonSection("Coming Soon", movieViewModel.upcomingMovies, navController)
                         Spacer(modifier = Modifier.height(28.dp))
                         MovieSection("Popular", movieViewModel.popularMovies, navController)
@@ -669,5 +675,115 @@ private fun StreamingMovieCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+fun PlatformOffersSection(viewModel: OffersViewModel, navController: NavController) {
+    val platformOffers by viewModel.platformOffers.collectAsState()
+    
+    if (platformOffers.isEmpty()) return
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.LocalOffer,
+                    contentDescription = null,
+                    tint = PrimaryAccent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Platform Offers",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            }
+            TextButton(onClick = { navController.navigate(Screen.Offers.route) }) {
+                Text("View All", color = PrimaryAccent, fontSize = 13.sp)
+                Icon(Icons.Default.ChevronRight, null, tint = PrimaryAccent, modifier = Modifier.size(16.dp))
+            }
+        }
+        
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
+            items(platformOffers) { offer ->
+                PlatformOfferCard(offer) {
+                    navController.navigate(Screen.Offers.route)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+fun PlatformOfferCard(offer: com.example.bookmymovie.model.Offer, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .width(280.dp)
+            .height(130.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(PrimaryAccent.copy(alpha = 0.9f), SecondaryBackground)
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.align(Alignment.TopStart)) {
+                Text(
+                    text = offer.title,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = offer.description,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            Surface(
+                modifier = Modifier.align(Alignment.BottomEnd),
+                shape = RoundedCornerShape(8.dp),
+                color = Color.White.copy(alpha = 0.2f)
+            ) {
+                Text(
+                    text = offer.couponCode,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp
+                )
+            }
+            
+            Icon(
+                Icons.Default.ConfirmationNumber,
+                contentDescription = null,
+                modifier = Modifier.align(Alignment.BottomStart).size(32.dp).graphicsLayer(alpha = 0.2f),
+                tint = Color.White
+            )
+        }
     }
 }

@@ -186,6 +186,9 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.MyWallet.route) {
             MyWalletScreen(navController)
         }
+        composable(Screen.AdminCreateOffer.route) {
+            AdminCreateOfferScreen(navController)
+        }
     }
 }
 

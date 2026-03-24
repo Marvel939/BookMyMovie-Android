@@ -39,8 +39,10 @@ import com.example.bookmymovie.ui.viewmodel.BookingViewModel
 import com.example.bookmymovie.ui.viewmodel.OwnerScreen
 import com.example.bookmymovie.ui.viewmodel.ShowtimeRequest
 import com.example.bookmymovie.ui.viewmodel.OfferAdminViewModel
+import com.example.bookmymovie.model.OfferApprovalStatus
 import com.example.bookmymovie.ui.viewmodel.TheatreOwnerViewModel
 import androidx.compose.runtime.collectAsState
+import androidx.compose.material.icons.filled.LocalOffer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,11 +122,54 @@ fun AdminPanelScreen(
                     }
                 }
                 5 -> {
-                    LaunchedEffect(Unit) {
-                        navController.navigate(Screen.AdminOfferApproval.route)
+                    Column(Modifier.fillMaxSize().padding(16.dp)) {
+                        Button(
+                            onClick = { navController.navigate(Screen.AdminCreateOffer.route) },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
+                        ) {
+                            Icon(Icons.Default.LocalOffer, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Create New Platform Offer", fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(24.dp))
+                        Text("Pending Approvals", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Spacer(Modifier.height(12.dp))
+                        
+                        PendingOffersList(offerVm)
                     }
                 }
                 6 -> HistoryOffersTab(offerVm)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.PendingOffersList(viewModel: OfferAdminViewModel) {
+    val pendingOffers by viewModel.pendingOffers.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    if (isLoading) {
+        Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = PrimaryAccent)
+        }
+    } else if (pendingOffers.isEmpty()) {
+        Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+            Text("No pending offers to approve.", color = TextSecondary, fontSize = 14.sp)
+        }
+    } else {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            items(pendingOffers) { offer ->
+                AdminApprovalOfferCard(
+                    offer = offer,
+                    onApprove = { viewModel.updateOfferStatus(offer.id, com.example.bookmymovie.model.OfferApprovalStatus.APPROVED) },
+                    onReject = { viewModel.updateOfferStatus(offer.id, com.example.bookmymovie.model.OfferApprovalStatus.REJECTED) }
+                )
             }
         }
     }

@@ -67,4 +67,5 @@ sealed class Screen(val route: String) {
     object ChatHistory : Screen("chat_history")
     object MyRefunds : Screen("my_refunds")
     object MyWallet : Screen("my_wallet")
+    object AdminCreateOffer : Screen("admin_create_offer")
 }
