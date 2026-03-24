@@ -9,13 +9,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.bookmymovie.MainActivity
-import com.example.bookmymovie.model.Offer
 import com.example.bookmymovie.ui.screens.*
 import com.example.bookmymovie.ui.viewmodel.BookingViewModel
 import com.example.bookmymovie.ui.viewmodel.StreamingViewModel
-import com.example.bookmymovie.ui.viewmodel.OffersViewModel
-import com.example.bookmymovie.ui.viewmodel.OfferAdminViewModel
-import com.example.bookmymovie.ui.viewmodel.TheatreOwnerCreateOfferViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
@@ -167,46 +163,6 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(Screen.TheatreOwnerProfile.route) {
             TheatreOwnerProfileScreen(navController)
-        }
-        composable(Screen.Offers.route) {
-            val userId = auth.currentUser?.uid ?: ""
-            UpdatedOffersScreen(cityId = "1", userId = userId)
-        }
-        composable(
-            route = Screen.OfferDetail.route,
-            arguments = listOf(navArgument("offerId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val offerId = backStackEntry.arguments?.getString("offerId") ?: ""
-            OfferDetailScreen(offer = Offer.EMPTY, onBackClick = { navController.popBackStack() })
-        }
-        composable(Screen.AdminOfferApproval.route) {
-            AdminOfferApprovalScreen(
-                adminId = auth.currentUser?.uid ?: "",
-                onCreateOfferClick = { navController.navigate(Screen.AdminCreateOffer.route) }
-            )
-        }
-        composable(Screen.TheatreOwnerCreateOffer.route) {
-            TheatreOwnerCreateOfferScreen(
-                theatreOwnerId = auth.currentUser?.uid ?: "",
-                theatreOwnerName = auth.currentUser?.displayName ?: "",
-                isAdminMode = false,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.AdminCreateOffer.route) {
-            TheatreOwnerCreateOfferScreen(
-                theatreOwnerId = auth.currentUser?.uid ?: "",
-                theatreOwnerName = auth.currentUser?.displayName ?: "Admin",
-                isAdminMode = true,
-                onBackClick = { navController.popBackStack() },
-                onOfferCreated = { navController.popBackStack() }
-            )
-        }
-        composable(Screen.TheatreOwnerOfferHistory.route) {
-            TheatreOwnerOfferHistoryScreen(
-                theatreOwnerId = auth.currentUser?.uid ?: "",
-                onBackClick = { navController.popBackStack() }
-            )
         }
         composable(Screen.AiChat.route) {
             AiChatScreen(navController)

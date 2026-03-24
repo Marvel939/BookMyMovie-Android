@@ -83,7 +83,7 @@ fun AdminPanelScreen(
         if (!bookingViewModel.isAdmin) return@Scaffold
 
         val ownerVm: TheatreOwnerViewModel = viewModel()
-        val tabs = listOf("Screens", "Showtimes", "Food", "Requests", "Stream", "Offers")
+        val tabs = listOf("Screens", "Showtimes", "Food", "Requests", "Stream")
         var selectedTab by remember { mutableIntStateOf(0) }
 
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -108,11 +108,6 @@ fun AdminPanelScreen(
                 4 -> {
                     LaunchedEffect(Unit) {
                         navController.navigate(Screen.AdminStreamingCatalog.route)
-                    }
-                }
-                5 -> {
-                    LaunchedEffect(Unit) {
-                        navController.navigate(Screen.AdminOfferApproval.route)
                     }
                 }
             }
