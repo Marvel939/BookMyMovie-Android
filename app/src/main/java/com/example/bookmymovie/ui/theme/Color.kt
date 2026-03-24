@@ -24,6 +24,12 @@ val SilverSeat   = Color(0xFF7A8FA6)
 val GoldSeat     = Color(0xFFD4A017)
 val PlatinumSeat = Color(0xFF8A5CF6)
 
+// Functional colors
+val ErrorRed = Color(0xFFE53935)
+val SuccessGreen = Color(0xFF43A047)
+val SafetyGreen = SuccessGreen
+val BackgroundColor = DeepCharcoal
+
 // Backward compat aliases
 val BookmyMovieRed = PrimaryAccent
 val BookmyMovieBlack = DeepCharcoal

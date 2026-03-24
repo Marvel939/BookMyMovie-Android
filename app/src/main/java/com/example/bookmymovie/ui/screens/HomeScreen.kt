@@ -56,8 +56,8 @@ fun HomeScreen(
     val nearbyTheatresViewModel: NearbyTheatresViewModel =
         viewModel(LocalContext.current as MainActivity)
     var selectedItem by remember { mutableIntStateOf(0) }
-    val items = listOf("Home", "Stream", "Profile")
-    val icons = listOf(Icons.Default.Home, Icons.Default.LiveTv, Icons.Default.Person)
+    val items = listOf("Home", "Stream", "Offers", "Profile")
+    val icons = listOf(Icons.Default.Home, Icons.Default.LiveTv, Icons.Default.LocalOffer, Icons.Default.Person)
 
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid ?: ""
@@ -180,6 +180,7 @@ fun HomeScreen(
                             when (item) {
                                 "Profile" -> navController.navigate(Screen.Profile.route)
                                 "Stream" -> navController.navigate(Screen.StreamBrowse.route)
+                                "Offers" -> navController.navigate(Screen.Offers.route)
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(

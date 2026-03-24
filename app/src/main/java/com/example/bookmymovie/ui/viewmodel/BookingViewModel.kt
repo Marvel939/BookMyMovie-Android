@@ -360,6 +360,8 @@ class BookingViewModel : ViewModel() {
                 "time"        to booking.time,
                 "language"    to booking.language,
                 "seats"       to booking.seats,
+                "discountAmount" to booking.discountAmount,
+                "discountCode" to booking.discountCode,
                 "totalAmount" to booking.totalAmount
             )
         )
@@ -391,6 +393,8 @@ class BookingViewModel : ViewModel() {
                             "time"        to booking.time,
                             "language"    to booking.language,
                             "seats"       to booking.seats,
+                            "discountAmount" to booking.discountAmount,
+                            "discountCode" to booking.discountCode,
                             "totalAmount" to booking.totalAmount
                         )
                     )
@@ -437,7 +441,9 @@ class BookingViewModel : ViewModel() {
         movieName: String,
         moviePoster: String,
         paymentMethod: String = "stripe",
-        paymentReference: String? = null
+        paymentReference: String? = null,
+        discountAmount: Int = 0,
+        discountCode: String = ""
     ) {
         val showtime = selectedShowtime ?: return
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -510,7 +516,9 @@ class BookingViewModel : ViewModel() {
                     ticketGstAmount = ticketGstAmount,
                     convenienceFeeAmount = convenienceFeeAmount,
                     convenienceFeeGstAmount = convenienceFeeGstAmount,
-                    totalAmount = totalAmount,
+                    totalAmount = java.lang.Math.max(0, totalAmount - discountAmount),
+                    discountAmount = discountAmount,
+                    discountCode = discountCode,
                     refundableAmount = refundableAmount,
                     nonRefundableAmount = nonRefundableAmount,
                     paymentIntentId = paymentIntentId,
@@ -579,6 +587,9 @@ class BookingViewModel : ViewModel() {
         "convenienceFeeAmount" to b.convenienceFeeAmount,
         "convenienceFeeGstAmount" to b.convenienceFeeGstAmount,
         "totalAmount" to b.totalAmount,
+        "discountAmount" to b.discountAmount,
+        "discountCode" to b.discountCode,
+        "appliedCouponId" to b.appliedCouponId,
         "refundableAmount" to b.refundableAmount,
         "nonRefundableAmount" to b.nonRefundableAmount,
         "paymentIntentId" to b.paymentIntentId,
@@ -635,6 +646,9 @@ class BookingViewModel : ViewModel() {
                                 ticketGstAmount = ticketGstAmount,
                                 convenienceFeeAmount = convenienceFeeAmount,
                                 convenienceFeeGstAmount = convenienceFeeGstAmount,
+                                discountAmount = child.child("discountAmount").getValue(Int::class.java) ?: 0,
+                                discountCode = child.child("discountCode").getValue(String::class.java) ?: "",
+                                appliedCouponId = child.child("appliedCouponId").getValue(String::class.java) ?: "",
                                 totalAmount = child.child("totalAmount").getValue(Int::class.java) ?: 0,
                                 refundableAmount = child.child("refundableAmount").getValue(Int::class.java) ?: fallbackRefundable,
                                 nonRefundableAmount = child.child("nonRefundableAmount").getValue(Int::class.java) ?: fallbackNonRefundable,

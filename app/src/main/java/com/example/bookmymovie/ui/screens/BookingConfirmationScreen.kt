@@ -121,6 +121,11 @@ fun BookingConfirmationScreen(
                     HorizontalDivider(color = DividerColor)
                     Spacer(Modifier.height(12.dp))
 
+                    if (booking.discountAmount > 0) {
+                        TicketRow("Discount (${booking.discountCode})", "-₹${booking.discountAmount}")
+                        Spacer(Modifier.height(8.dp))
+                    }
+
                     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                         Text("Total Paid", color = TextSecondary, fontSize = 14.sp)
                         Text("₹${booking.totalAmount}", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 20.sp)

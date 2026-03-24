@@ -38,7 +38,9 @@ import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.BookingViewModel
 import com.example.bookmymovie.ui.viewmodel.OwnerScreen
 import com.example.bookmymovie.ui.viewmodel.ShowtimeRequest
+import com.example.bookmymovie.ui.viewmodel.OfferAdminViewModel
 import com.example.bookmymovie.ui.viewmodel.TheatreOwnerViewModel
+import androidx.compose.runtime.collectAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,19 +85,26 @@ fun AdminPanelScreen(
         if (!bookingViewModel.isAdmin) return@Scaffold
 
         val ownerVm: TheatreOwnerViewModel = viewModel()
-        val tabs = listOf("Screens", "Showtimes", "Food", "Requests", "Stream")
+        val offerVm: OfferAdminViewModel = viewModel()
+        val tabs = listOf("Screens", "Showtimes", "Food", "Requests", "Stream", "Offers", "Offer Hist")
         var selectedTab by remember { mutableIntStateOf(0) }
 
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ScrollableTabRow(selectedTabIndex = selectedTab, containerColor = CardBackground, contentColor = PrimaryAccent, edgePadding = 0.dp) {
-                tabs.forEachIndexed { idx, t ->
+            ScrollableTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = DeepCharcoal,
+                contentColor = PrimaryAccent,
+                edgePadding = 8.dp
+            ) {
+                tabs.forEachIndexed { index, title ->
                     Tab(
-                        selected = selectedTab == idx,
-                        onClick = { selectedTab = idx },
-                        text = { Text(t, color = if (selectedTab == idx) PrimaryAccent else TextSecondary) }
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title, color = if (selectedTab == index) PrimaryAccent else TextSecondary) }
                     )
                 }
             }
+
             when (selectedTab) {
                 0 -> ApprovedScreensTab(ownerVm)
                 1 -> ApprovedShowtimesTab(ownerVm)
@@ -110,6 +119,12 @@ fun AdminPanelScreen(
                         navController.navigate(Screen.AdminStreamingCatalog.route)
                     }
                 }
+                5 -> {
+                    LaunchedEffect(Unit) {
+                        navController.navigate(Screen.AdminOfferApproval.route)
+                    }
+                }
+                6 -> HistoryOffersTab(offerVm)
             }
         }
     }
@@ -500,4 +515,53 @@ private fun AdminField(
         singleLine = true,
         shape = RoundedCornerShape(10.dp)
     )
+}
+
+@Composable
+private fun HistoryOffersTab(vm: OfferAdminViewModel) {
+    val historyOffers by vm.historyOffers.collectAsState()
+    
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Offer Approval History", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Spacer(Modifier.height(12.dp))
+        
+        if (historyOffers.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No past offer actions found.", color = TextSecondary)
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(historyOffers) { offer ->
+                    OfferHistoryCard(offer)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OfferHistoryCard(offer: com.example.bookmymovie.model.Offer) {
+    val statusColor = if (offer.approvalStatus == com.example.bookmymovie.model.OfferApprovalStatus.APPROVED.name) SafetyGreen else ErrorRed
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                Text(offer.title, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(
+                    offer.approvalStatus,
+                    color = statusColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+            Text(offer.description, color = TextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(4.dp))
+            Text("Coupon: ${offer.couponCode}", color = PrimaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text("Theatre: ${offer.theatreName}", color = TextSecondary, fontSize = 11.sp)
+        }
+    }
 }

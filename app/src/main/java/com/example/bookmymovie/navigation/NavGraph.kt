@@ -164,6 +164,16 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.TheatreOwnerProfile.route) {
             TheatreOwnerProfileScreen(navController)
         }
+        composable(Screen.TheatreOwnerCreateOffer.route) {
+            val theatreOwnerId = auth.currentUser?.uid ?: ""
+            TheatreOwnerCreateOfferScreen(navController, theatreOwnerId)
+        }
+        composable(Screen.AdminOfferApproval.route) {
+            AdminOfferApprovalScreen(navController)
+        }
+        composable(Screen.Offers.route) {
+            OffersScreen(navController)
+        }
         composable(Screen.AiChat.route) {
             AiChatScreen(navController)
         }

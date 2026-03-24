@@ -31,6 +31,7 @@ import com.example.bookmymovie.navigation.Screen
 import com.example.bookmymovie.ui.components.AppLogo
 import com.example.bookmymovie.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.launch
 
 @Composable
@@ -162,12 +163,43 @@ fun LoginScreen(navController: NavController) {
                         isLoading = true
                         auth.signInWithEmailAndPassword(email, password)
                             .addOnCompleteListener { task ->
-                                isLoading = false
                                 if (task.isSuccessful) {
-                                    navController.navigate(Screen.Home.route) {
-                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                    val uid = auth.currentUser?.uid ?: ""
+                                    val db = FirebaseDatabase.getInstance().reference
+                                    
+                                    // Check if user is an Admin
+                                    db.child("admin_users").child(uid).get().addOnSuccessListener { adminSnap ->
+                                        if (adminSnap.exists()) {
+                                            isLoading = false
+                                            auth.signOut()
+                                            Toast.makeText(context, "Error: Admin accounts cannot log in here. Use Admin Login.", Toast.LENGTH_LONG).show()
+                                        } else {
+                                            // Check if user is a Theatre Owner
+                                            db.child("theatre_owners").child(uid).get().addOnSuccessListener { ownerSnap ->
+                                                isLoading = false
+                                                if (ownerSnap.exists()) {
+                                                    auth.signOut()
+                                                    Toast.makeText(context, "Error: Theatre Owner accounts cannot log in here. Use Owner Login.", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    navController.navigate(Screen.Home.route) {
+                                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                                    }
+                                                }
+                                            }.addOnFailureListener {
+                                                isLoading = false
+                                                navController.navigate(Screen.Home.route) {
+                                                    popUpTo(Screen.Login.route) { inclusive = true }
+                                                }
+                                            }
+                                        }
+                                    }.addOnFailureListener {
+                                        isLoading = false
+                                        navController.navigate(Screen.Home.route) {
+                                            popUpTo(Screen.Login.route) { inclusive = true }
+                                        }
                                     }
                                 } else {
+                                    isLoading = false
                                     Toast.makeText(context, "Login failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -224,9 +256,37 @@ fun LoginScreen(navController: NavController) {
                     GoogleAuthHelper.signInWithGoogle(
                         context = context,
                         onSuccess = {
-                            isGoogleLoading = false
-                            navController.navigate(Screen.Home.route) {
-                                popUpTo(Screen.Login.route) { inclusive = true }
+                            val uid = auth.currentUser?.uid ?: ""
+                            val db = FirebaseDatabase.getInstance().reference
+                            
+                            db.child("admin_users").child(uid).get().addOnSuccessListener { adminSnap ->
+                                if (adminSnap.exists()) {
+                                    isGoogleLoading = false
+                                    auth.signOut()
+                                    Toast.makeText(context, "Error: Admin accounts cannot log in here. Use Admin Login.", Toast.LENGTH_LONG).show()
+                                } else {
+                                    db.child("theatre_owners").child(uid).get().addOnSuccessListener { ownerSnap ->
+                                        isGoogleLoading = false
+                                        if (ownerSnap.exists()) {
+                                            auth.signOut()
+                                            Toast.makeText(context, "Error: Theatre Owner accounts cannot log in here. Use Owner Login.", Toast.LENGTH_LONG).show()
+                                        } else {
+                                            navController.navigate(Screen.Home.route) {
+                                                popUpTo(Screen.Login.route) { inclusive = true }
+                                            }
+                                        }
+                                    }.addOnFailureListener {
+                                        isGoogleLoading = false
+                                        navController.navigate(Screen.Home.route) {
+                                            popUpTo(Screen.Login.route) { inclusive = true }
+                                        }
+                                    }
+                                }
+                            }.addOnFailureListener {
+                                isGoogleLoading = false
+                                navController.navigate(Screen.Home.route) {
+                                    popUpTo(Screen.Login.route) { inclusive = true }
+                                }
                             }
                         },
                         onError = { error ->

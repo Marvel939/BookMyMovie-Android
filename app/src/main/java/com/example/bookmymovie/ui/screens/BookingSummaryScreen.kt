@@ -23,8 +23,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.bookmymovie.navigation.Screen
+import com.example.bookmymovie.ui.components.CouponInputField
 import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.BookingViewModel
+import com.example.bookmymovie.ui.viewmodel.OffersViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.stripe.android.paymentsheet.PaymentSheet
 import com.stripe.android.paymentsheet.PaymentSheetResult
@@ -34,8 +36,16 @@ import com.stripe.android.paymentsheet.rememberPaymentSheet
 @Composable
 fun BookingSummaryScreen(
     navController: NavController,
-    bookingViewModel: BookingViewModel
+    bookingViewModel: BookingViewModel,
+    offersViewModel: OffersViewModel = viewModel()
 ) {
+    val appliedCoupon by offersViewModel.appliedCoupon.collectAsState()
+    val discountAmount by offersViewModel.discountAmount.collectAsState()
+    val isCouponApplying by offersViewModel.isApplying.collectAsState()
+    val couponErrorMessage by offersViewModel.errorMessage.collectAsState()
+    
+    var couponCode by remember { mutableStateOf("") }
+    
     val showtime = bookingViewModel.selectedShowtime
     val selectedSeatIds = bookingViewModel.selectedSeats
     val selectedSeats   = bookingViewModel.seats.values.filter { it.seatId in selectedSeatIds }
@@ -53,12 +63,14 @@ fun BookingSummaryScreen(
         when (result) {
             is PaymentSheetResult.Completed -> {
                 paymentSheetError = null
-                showtime?.let {
+                 showtime?.let {
                     bookingViewModel.confirmBooking(
                         movieId = it.movieId,
                         movieName = it.movieName,
                         moviePoster = it.moviePoster,
-                        paymentMethod = "stripe"
+                        paymentMethod = "stripe",
+                        discountAmount = discountAmount.toInt(),
+                        discountCode = appliedCoupon?.couponCode ?: ""
                     )
                 }
             }
@@ -119,11 +131,33 @@ fun BookingSummaryScreen(
                             Text("₹${bookingViewModel.convenienceFeeGstAmount}", color = TextPrimary)
                         }
                         Spacer(Modifier.height(12.dp))
+                        CouponInputField(
+                            couponCode = couponCode,
+                            onCouponCodeChange = { couponCode = it },
+                            onApplyCoupon = {
+                                 offersViewModel.applyCoupon(
+                                     couponCode = couponCode,
+                                     bookingAmount = bookingViewModel.totalAmount.toDouble(),
+                                     theatreId = bookingViewModel.currentPlaceId,
+                                     movieId = showtime?.movieId
+                                 )
+                            },
+                            onRemoveCoupon = {
+                                offersViewModel.removeCoupon()
+                                couponCode = ""
+                            },
+                            isLoading = isCouponApplying,
+                            errorMessage = couponErrorMessage,
+                            isApplied = appliedCoupon != null,
+                            discountAmount = discountAmount
+                        )
+                        Spacer(Modifier.height(12.dp))
                         HorizontalDivider(color = DividerColor)
                         Spacer(Modifier.height(6.dp))
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
                             Text("Total Payable", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text("₹${bookingViewModel.totalAmount}", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            val finalPayable = maxOf(0, bookingViewModel.totalAmount - discountAmount.toInt())
+                            Text("₹$finalPayable", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         }
                         Spacer(Modifier.height(10.dp))
                         Text("Payment Method", color = TextSecondary, fontSize = 12.sp)
@@ -154,7 +188,7 @@ fun BookingSummaryScreen(
                         Button(
                             onClick = {
                                 paymentSheetError = null
-                                val finalAmount = bookingViewModel.totalAmount
+                                val finalAmount = maxOf(0, bookingViewModel.totalAmount - discountAmount.toInt())
 
                                 if (selectedPaymentMethod == "wallet") {
                                     showtime?.let {
@@ -175,7 +209,9 @@ fun BookingSummaryScreen(
                                                     movieName = it.movieName,
                                                     moviePoster = it.moviePoster,
                                                     paymentMethod = "wallet",
-                                                    paymentReference = walletTxId
+                                                    paymentReference = walletTxId,
+                                                    discountAmount = discountAmount.toInt(),
+                                                    discountCode = appliedCoupon?.couponCode ?: ""
                                                 )
                                             },
                                             onError = { err ->

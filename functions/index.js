@@ -364,6 +364,10 @@ async function generateBookingPdf(booking, qrBuffer) {
     drawRow("Language:", booking.language);
     drawRow("Seats:", seatsText);
 
+    if (booking.discountAmount > 0) {
+      drawRow(`Discount (${booking.discountCode}):`, `-\u20B9${booking.discountAmount}`);
+    }
+
     doc.moveDown(0.8);
     doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor("#dddddd").lineWidth(1).stroke();
     doc.moveDown(0.6);
@@ -454,6 +458,8 @@ exports.sendBookingEmail = onCall(async (request) => {
                 <td style="color:#fff;">${booking.language}</td></tr>
             <tr><td style="padding:7px 0;color:#aaa;">Seats</td>
                 <td style="color:#fff;">${seatsText}</td></tr>
+            ${booking.discountAmount > 0 ? `<tr><td style="padding:7px 0;color:#aaa;">Discount (${booking.discountCode || ''})</td>
+                <td style="color:#2ECC71;">-&#8377;${booking.discountAmount}</td></tr>` : ''}
             <tr style="border-top:1px solid #333;">
                 <td style="padding:12px 0 4px 0;color:#aaa;font-size:15px;">Total Paid</td>
                 <td style="color:#e50914;font-weight:bold;font-size:20px;padding-top:12px;">&#8377;${booking.totalAmount}</td></tr>
@@ -543,6 +549,7 @@ exports.sendBookingWhatsApp = onCall(async (request) => {
       `*Time:* ${booking.time}\n` +
       `*Language:* ${booking.language}\n` +
       `*Seats:* ${seatsText}\n` +
+      (booking.discountAmount > 0 ? `*Discount (${booking.discountCode || ''}):* -₹${booking.discountAmount}\n` : "") +
       `*Total Paid:* ₹${booking.totalAmount}\n\n` +
       `*Booking ID:* ${booking.bookingId}\n\n` +
       `Your ticket PDF is attached. Enjoy the movie! 🍿`;

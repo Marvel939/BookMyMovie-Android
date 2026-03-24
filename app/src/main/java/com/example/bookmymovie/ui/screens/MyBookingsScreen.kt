@@ -142,6 +142,10 @@ private fun BookingHistoryCard(
                 Spacer(Modifier.height(6.dp))
                 Text("Seats: ${booking.seats.joinToString(", ")}", color = TextPrimary, fontSize = 12.sp)
                 Spacer(Modifier.height(6.dp))
+                if (booking.discountAmount > 0) {
+                    Text("Discount (${booking.discountCode}): -₹${booking.discountAmount}", color = androidx.compose.ui.graphics.Color(0xFF2ECC71), fontSize = 12.sp)
+                    Spacer(Modifier.height(6.dp))
+                }
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
