@@ -88,7 +88,7 @@ fun AdminPanelScreen(
 
         val ownerVm: TheatreOwnerViewModel = viewModel()
         val offerVm: OfferAdminViewModel = viewModel()
-        val tabs = listOf("Screens", "Showtimes", "Food", "Requests", "Stream", "Offers", "Offer Hist")
+        val tabs = listOf("Analytics", "Screens", "Showtimes", "Food", "Requests", "Stream", "Offers", "Offer Hist")
         var selectedTab by remember { mutableIntStateOf(0) }
 
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -108,20 +108,21 @@ fun AdminPanelScreen(
             }
 
             when (selectedTab) {
-                0 -> ApprovedScreensTab(ownerVm)
-                1 -> ApprovedShowtimesTab(ownerVm)
-                2 -> AddFoodTab(bookingViewModel)
-                3 -> {
+                0 -> AnalyticsTabContent()
+                1 -> ApprovedScreensTab(ownerVm)
+                2 -> ApprovedShowtimesTab(ownerVm)
+                3 -> AddFoodTab(bookingViewModel)
+                4 -> {
                     LaunchedEffect(Unit) {
                         navController.navigate(Screen.AdminRequests.route)
                     }
                 }
-                4 -> {
+                5 -> {
                     LaunchedEffect(Unit) {
                         navController.navigate(Screen.AdminStreamingCatalog.route)
                     }
                 }
-                5 -> {
+                6 -> {
                     Column(Modifier.fillMaxSize().padding(16.dp)) {
                         Button(
                             onClick = { navController.navigate(Screen.AdminCreateOffer.route) },
@@ -140,7 +141,7 @@ fun AdminPanelScreen(
                         PendingOffersList(offerVm)
                     }
                 }
-                6 -> HistoryOffersTab(offerVm)
+                7 -> HistoryOffersTab(offerVm)
             }
         }
     }

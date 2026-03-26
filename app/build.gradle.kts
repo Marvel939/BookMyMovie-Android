@@ -80,6 +80,9 @@ dependencies {
     implementation("com.google.firebase:firebase-functions-ktx:20.4.0")
     implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
+    implementation(libs.vico.core)
 
     // ExoPlayer (Media3) for video playback
     implementation("androidx.media3:media3-exoplayer:1.5.1")

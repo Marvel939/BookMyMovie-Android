@@ -189,6 +189,9 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.AdminCreateOffer.route) {
             AdminCreateOfferScreen(navController)
         }
+        composable(Screen.AdminAnalytics.route) {
+            AdminAnalyticsScreen(navController)
+        }
     }
 }
 
