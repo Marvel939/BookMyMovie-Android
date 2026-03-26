@@ -121,20 +121,23 @@ fun TheatreOwnerPanelScreen(navController: NavController) {
             TabRow(selectedTabIndex = selectedTab, containerColor = CardBackground, contentColor = PrimaryAccent,
                 divider = { HorizontalDivider(color = DividerColor) }) {
                 Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
-                    text = { Text("My Screens", color = if (selectedTab == 0) PrimaryAccent else TextSecondary) })
+                    text = { Text("Analytics", color = if (selectedTab == 0) PrimaryAccent else TextSecondary) })
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                    text = { Text("Requests", color = if (selectedTab == 1) PrimaryAccent else TextSecondary) })
+                    text = { Text("My Screens", color = if (selectedTab == 1) PrimaryAccent else TextSecondary) })
+                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
+                    text = { Text("Requests", color = if (selectedTab == 2) PrimaryAccent else TextSecondary) })
             }
 
             LaunchedEffect(selectedTab) {
-                if (selectedTab == 1) vm.loadMyShowtimeRequests()
+                if (selectedTab == 2) vm.loadMyShowtimeRequests()
             }
 
             when (selectedTab) {
-                0 -> OwnerScreensTab(vm.ownerScreens, onAddMovie = { screen ->
+                0 -> TheatreAnalyticsContent()
+                1 -> OwnerScreensTab(vm.ownerScreens, onAddMovie = { screen ->
                     navController.navigate(Screen.OwnerSchedule.route)
                 })
-                1 -> OwnerRequestsTab(vm.myShowtimeRequests)
+                2 -> OwnerRequestsTab(vm.myShowtimeRequests)
             }
         }
     }

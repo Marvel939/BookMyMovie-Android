@@ -2,6 +2,7 @@ package com.example.bookmymovie.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.example.bookmymovie.model.Booking
+import com.example.bookmymovie.model.StreamingTransaction
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -14,6 +15,7 @@ import java.util.Calendar
 data class AdminAnalyticsState(
     val totalTicketsSold: Int = 0,
     val totalProfit: Double = 0.0,
+    val totalRefunds: Double = 0.0,
     val weeklyProfit: Double = 0.0,
     val monthlyProfit: Double = 0.0,
     val yearlyProfit: Double = 0.0,
@@ -24,6 +26,12 @@ data class AdminAnalyticsState(
     val topMovies: List<Pair<String, Double>> = emptyList(),
     val seatDistribution: Map<String, Int> = emptyMap(),
     val recentBookings: List<Booking> = emptyList(),
+    val refundBookings: List<Booking> = emptyList(),
+    val streamingTransactions: List<StreamingTransaction> = emptyList(),
+    val totalStreamingRevenue: Double = 0.0,
+    val buyCount: Int = 0,
+    val rentCount: Int = 0,
+    val topStreamingMovies: List<Pair<String, Double>> = emptyList(),
     val isLoading: Boolean = true
 )
 
@@ -44,14 +52,17 @@ class AdminAnalyticsViewModel : ViewModel() {
         listenToTheatreOwners()
         listenToOffers()
         listenToTheatres()
+        listenToStreamingTransactions()
     }
 
     private fun listenToBookings() {
         db.getReference("all_bookings").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val bookings = mutableListOf<Booking>()
+                val refundBookings = mutableListOf<Booking>()
                 var totalTickets = 0
                 var totalProfit = 0.0
+                var totalRefunds = 0.0
                 var weeklyProfit = 0.0
                 var monthlyProfit = 0.0
                 var yearlyProfit = 0.0
@@ -99,12 +110,19 @@ class AdminAnalyticsViewModel : ViewModel() {
                             seatTypeMap[type] = (seatTypeMap[type] ?: 0) + 1
                         }
                     }
+
+                    if (booking.refundStatus == "succeeded") {
+                        totalRefunds += booking.refundableAmount.toDouble()
+                        refundBookings.add(booking)
+                    }
                 }
 
                 _state.value = _state.value.copy(
                     recentBookings = bookings.sortedByDescending { it.bookedAt },
+                    refundBookings = refundBookings.sortedByDescending { it.refundedAt },
                     totalTicketsSold = totalTickets,
                     totalProfit = totalProfit,
+                    totalRefunds = totalRefunds,
                     weeklyProfit = weeklyProfit,
                     monthlyProfit = monthlyProfit,
                     yearlyProfit = yearlyProfit,
@@ -194,6 +212,45 @@ class AdminAnalyticsViewModel : ViewModel() {
         // If 'cinemas' is empty, we fall back to others.
         val total = maxOf(t, c, o)
         _state.value = _state.value.copy(totalTheatres = total)
+    }
+
+    private fun listenToStreamingTransactions() {
+        db.getReference("streaming_transactions").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val transactions = mutableListOf<StreamingTransaction>()
+                var totalRevenue = 0.0
+                var buy = 0
+                var rent = 0
+                val movieRevenueMap = mutableMapOf<String, Double>()
+
+                snapshot.children.forEach { child ->
+                    try {
+                        val tx = StreamingTransaction(
+                            transactionId = child.key ?: "",
+                            userId = child.child("userId").getValue(String::class.java) ?: "",
+                            movieId = child.child("movieId").getValue(String::class.java) ?: "",
+                            movieTitle = child.child("movieTitle").getValue(String::class.java) ?: "",
+                            type = child.child("type").getValue(String::class.java) ?: "rent",
+                            amount = (child.child("amount").value as? Number)?.toDouble() ?: 0.0,
+                            timestamp = child.child("timestamp").getValue(Long::class.java) ?: 0L
+                        )
+                        transactions.add(tx)
+                        totalRevenue += tx.amount
+                        if (tx.type == "buy") buy++ else rent++
+                        movieRevenueMap[tx.movieTitle] = (movieRevenueMap[tx.movieTitle] ?: 0.0) + tx.amount
+                    } catch (e: Exception) {}
+                }
+
+                _state.value = _state.value.copy(
+                    streamingTransactions = transactions.sortedByDescending { it.timestamp },
+                    totalStreamingRevenue = totalRevenue,
+                    buyCount = buy,
+                    rentCount = rent,
+                    topStreamingMovies = movieRevenueMap.toList().sortedByDescending { it.second }.take(5)
+                )
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     private fun parseBooking(child: DataSnapshot): Booking? {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -21,14 +22,22 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.bookmymovie.model.Booking
+import com.example.bookmymovie.model.StreamingTransaction
+import com.example.bookmymovie.ui.components.ChartData
+import com.example.bookmymovie.ui.components.DonutChart
+import com.example.bookmymovie.ui.components.Legend
+import com.example.bookmymovie.ui.components.InvoiceDialog
+import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.AdminAnalyticsViewModel
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
+import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -89,8 +98,24 @@ fun AnalyticsTabContent(viewModel: AdminAnalyticsViewModel = viewModel()) {
             // Seat Distribution Chart
             SeatDistributionChart(state)
 
-            // Recent Bookings Detailed List
+            // Refund Chart Section
+            RefundChartSection(state)
+                
+            Spacer(Modifier.height(16.dp))
+            
+            StreamingAnalyticsSection(state)
+            
+            Spacer(Modifier.height(16.dp))
+            
             RecentBookingsSection(state.recentBookings)
+            
+            Spacer(Modifier.height(24.dp))
+            
+            RefundHistorySection(state.refundBookings)
+            
+            Spacer(Modifier.height(24.dp))
+            
+            StreamingHistorySection(state.streamingTransactions)
         }
     }
 }
@@ -150,6 +175,22 @@ fun SummaryCards(state: com.example.bookmymovie.ui.viewmodel.AdminAnalyticsState
                 modifier = Modifier.weight(1f)
             )
         }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            MetricCard(
+                title = "Total Refunds",
+                value = "₹${String.format("%.0f", state.totalRefunds)}",
+                icon = Icons.Default.Redeem,
+                color = Color(0xFFE53935),
+                modifier = Modifier.weight(1f)
+            )
+            MetricCard(
+                title = "Stream Rev",
+                value = "₹${String.format("%.0f", state.totalStreamingRevenue)}",
+                icon = Icons.Default.Stream,
+                color = Color(0xFF00C853),
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -197,7 +238,7 @@ fun ProfitTrends(state: com.example.bookmymovie.ui.viewmodel.AdminAnalyticsState
             val modelProducer = remember { CartesianChartModelProducer() }
             LaunchedEffect(state.weeklyProfit, state.monthlyProfit, state.yearlyProfit) {
                 modelProducer.runTransaction {
-                    columnSeries {
+                    lineSeries {
                         series(state.weeklyProfit, state.monthlyProfit, state.yearlyProfit)
                     }
                 }
@@ -205,7 +246,7 @@ fun ProfitTrends(state: com.example.bookmymovie.ui.viewmodel.AdminAnalyticsState
 
             CartesianChartHost(
                 chart = rememberCartesianChart(
-                    rememberColumnCartesianLayer(),
+                    rememberLineCartesianLayer(),
                     startAxis = rememberStartAxis(),
                     bottomAxis = rememberBottomAxis(
                         valueFormatter = { value, _, _ ->
@@ -278,71 +319,74 @@ fun TopMoviesChart(state: com.example.bookmymovie.ui.viewmodel.AdminAnalyticsSta
 fun SeatDistributionChart(state: com.example.bookmymovie.ui.viewmodel.AdminAnalyticsState) {
     if (state.seatDistribution.isEmpty()) return
     
+    val chartData = state.seatDistribution.map { (label, value) ->
+        val color = when(label.lowercase()) {
+            "silver" -> Color(0xFF9E9E9E)
+            "gold" -> Color(0xFFFFD700)
+            "platinum" -> Color(0xFFE5E4E2)
+            else -> Color.Cyan
+        }
+        ChartData(label, value.toFloat(), color)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Seat Category Distribution", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Seat Category (Donut)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             
-            val modelProducer = remember { CartesianChartModelProducer() }
-            val labels = state.seatDistribution.keys.toList()
-            LaunchedEffect(state.seatDistribution) {
-                modelProducer.runTransaction {
-                    columnSeries {
-                        series(state.seatDistribution.values.map { it.toFloat() })
-                    }
-                }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                DonutChart(
+                    data = chartData,
+                    modifier = Modifier.size(140.dp),
+                    centerLabel = "Total",
+                    centerValue = state.seatDistribution.values.sum().toString()
+                )
+                Legend(chartData, Modifier.weight(1f))
             }
-
-            CartesianChartHost(
-                chart = rememberCartesianChart(
-                    rememberColumnCartesianLayer(),
-                    startAxis = rememberStartAxis(),
-                    bottomAxis = rememberBottomAxis(
-                        valueFormatter = { value, _, _ ->
-                            val index = value.toInt()
-                            if (index in labels.indices) labels[index] else ""
-                        }
-                    )
-                ),
-                modelProducer = modelProducer,
-                modifier = Modifier.height(200.dp).fillMaxWidth()
-            )
         }
     }
 }
 
 @Composable
 fun RecentBookingsSection(bookings: List<Booking>) {
+    var selectedBooking by remember { mutableStateOf<Booking?>(null) }
+    
+    if (selectedBooking != null) {
+        InvoiceDialog(booking = selectedBooking!!) {
+            selectedBooking = null
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Detailed Booking History", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        
-        bookings.take(20).forEach { booking ->
-            BookingDetailCard(booking)
+        bookings.forEach { booking ->
+            BookingDetailCard(booking) {
+                selectedBooking = booking
+            }
         }
     }
 }
 
 @Composable
-fun BookingDetailCard(booking: Booking) {
+fun BookingDetailCard(booking: Booking, onViewInvoice: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Header: User and Status
+            // Header: Booking ID and Status
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text(booking.userName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text(booking.userEmail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Booking ID", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(booking.bookingId.take(12).uppercase(), fontWeight = FontWeight.ExtraBold, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 }
                 Surface(
-                    color = if (booking.status == "confirmed") Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (booking.status == "confirmed") Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
                 ) {
                     Text(
                         booking.status.uppercase(),
@@ -354,7 +398,22 @@ fun BookingDetailCard(booking: Booking) {
                 }
             }
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            // User Info
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
+                Column {
+                    Text(booking.userName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(booking.userEmail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onViewInvoice, colors = ButtonDefaults.textButtonColors(contentColor = PrimaryAccent)) {
+                    Text("View Invoice", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
 
             // Movie Info
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -405,6 +464,213 @@ fun BookingDetailCard(booking: Booking) {
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun RefundChartSection(state: com.example.bookmymovie.ui.viewmodel.AdminAnalyticsState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Text("Revenue vs Refunds", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(16.dp))
+
+            val modelProducer = remember { CartesianChartModelProducer() }
+            LaunchedEffect(state.totalProfit, state.totalRefunds) {
+                modelProducer.runTransaction {
+                    columnSeries {
+                        series(state.totalProfit.toFloat(), state.totalRefunds.toFloat())
+                    }
+                }
+            }
+
+            CartesianChartHost(
+                chart = rememberCartesianChart(
+                    rememberColumnCartesianLayer(),
+                    startAxis = rememberStartAxis(),
+                    bottomAxis = rememberBottomAxis(
+                        valueFormatter = { value, _, _ ->
+                            val index = value.toInt()
+                            if (index == 0) "Revenue" else if (index == 1) "Refunds" else ""
+                        }
+                    )
+                ),
+                modelProducer = modelProducer,
+                modifier = Modifier.height(200.dp).fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+fun RefundHistorySection(refunds: List<Booking>) {
+    var selectedBooking by remember { mutableStateOf<Booking?>(null) }
+    
+    if (selectedBooking != null) {
+        InvoiceDialog(booking = selectedBooking!!) {
+            selectedBooking = null
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Refund History", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFFE53935))
+        if (refunds.isEmpty()) {
+            Text("No refund transactions found.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        }
+        refunds.forEach { booking ->
+            RefundDetailCard(booking) {
+                selectedBooking = booking
+            }
+        }
+    }
+}
+
+@Composable
+fun RefundDetailCard(booking: Booking, onViewInvoice: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+        border = BorderStroke(1.5.dp, Color(0xFFEF5350))
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).background(Color(0xFFEF5350), CircleShape))
+                        Spacer(Modifier.width(8.dp))
+                        Text("REFUNDED", fontWeight = FontWeight.Bold, color = Color(0xFFEF5350), fontSize = 11.sp, letterSpacing = 1.sp)
+                    }
+                    Text(booking.bookingId.take(12).uppercase(), fontWeight = FontWeight.ExtraBold, color = Color.White, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 16.sp)
+                }
+                Surface(
+                    color = Color(0xFFEF5350).copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        "₹${booking.refundableAmount}",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFFEF5350),
+                        fontSize = 18.sp
+                    )
+                }
+            }
+            
+            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+            
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(36.dp).background(Color(0xFFEF5350).copy(alpha = 0.15f), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Person, null, tint = Color(0xFFEF5350), modifier = Modifier.size(18.dp))
+                }
+                Column {
+                    Text(booking.userName, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                    Text(booking.movieName, color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                }
+                Spacer(Modifier.weight(1f))
+                Button(
+                    onClick = onViewInvoice,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF5350).copy(alpha = 0.2f), contentColor = Color(0xFFEF5350)),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Details", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StreamingAnalyticsSection(state: com.example.bookmymovie.ui.viewmodel.AdminAnalyticsState) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("Streaming Performance", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color(0xFF00C853))
+        
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            val streamData = listOf(
+                ChartData("Buy", state.buyCount.toFloat(), Color(0xFF00C853)),
+                ChartData("Rent", state.rentCount.toFloat(), Color(0xFF2979FF))
+            )
+            
+            Card(
+                Modifier.weight(1f),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            ) {
+                Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Buy vs Rent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(16.dp))
+                    DonutChart(data = streamData, modifier = Modifier.size(100.dp), centerValue = (state.buyCount + state.rentCount).toString())
+                    Spacer(Modifier.height(16.dp))
+                    Legend(streamData)
+                }
+            }
+
+            Card(
+                Modifier.weight(1.2f),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Top Streamers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    state.topStreamingMovies.forEach { (title, revenue) ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(title.take(12), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("₹${revenue.toInt()}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF00C853))
+                        }
+                        LinearProgressIndicator(
+                            progress = { (revenue / (state.totalStreamingRevenue.coerceAtLeast(1.0))).toFloat() },
+                            modifier = Modifier.fillMaxWidth().height(4.dp).padding(vertical = 4.dp),
+                            color = Color(0xFF00C853),
+                            trackColor = Color(0xFF00C853).copy(alpha = 0.1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StreamingHistorySection(transactions: List<StreamingTransaction>) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Streaming Transactions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF00C853))
+        if (transactions.isEmpty()) {
+            Text("No stream transactions found.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        }
+        transactions.forEach { tx ->
+            StreamingTransactionCard(tx)
+        }
+    }
+}
+
+@Composable
+fun StreamingTransactionCard(tx: StreamingTransaction) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2E1B)),
+        border = BorderStroke(1.dp, Color(0xFF00C853).copy(alpha = 0.3f))
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).background(Color(0xFF00C853).copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(if (tx.type == "buy") Icons.Default.ShoppingCart else Icons.Default.Schedule, null, tint = Color(0xFF00C853), modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(tx.movieTitle, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("User ID: ${tx.userId.take(8).uppercase()}", fontSize = 10.sp, color = Color.White.copy(alpha = 0.6f))
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("₹${tx.amount.toInt()}", fontWeight = FontWeight.Black, color = Color(0xFF00C853), fontSize = 16.sp)
+                Text(tx.type.uppercase(), fontWeight = FontWeight.Bold, fontSize = 10.sp, color = if (tx.type == "buy") Color(0xFF00C853) else Color(0xFF2979FF))
             }
         }
     }
