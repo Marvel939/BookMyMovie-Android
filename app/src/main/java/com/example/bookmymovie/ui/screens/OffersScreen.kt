@@ -38,7 +38,6 @@ fun OffersScreen(
     val isLoading by offersViewModel.isLoading.collectAsState()
 
     val categories = listOf(
-        OfferCategory.BANK_PAYMENT to "Bank Offers",
         OfferCategory.THEATRE_SPECIFIC to "Theatre Offers",
         OfferCategory.MOVIE_SPECIFIC to "Movie Offers",
         OfferCategory.PLATFORM_WIDE to "Platform Offers"

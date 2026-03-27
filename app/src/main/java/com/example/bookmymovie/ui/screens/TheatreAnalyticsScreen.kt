@@ -167,28 +167,60 @@ fun ProfitItem(label: String, value: String, color: Color) {
 @Composable
 fun TheatreTopMoviesChart(state: TheatreAnalyticsState) {
     if (state.topMovies.isEmpty()) return
+    
+    val modelProducer = remember { CartesianChartModelProducer() }
+    val movieTitles = remember(state.topMovies) { state.topMovies.keys.toList() }
+    
+    LaunchedEffect(state.topMovies) {
+        modelProducer.runTransaction {
+            columnSeries {
+                series(state.topMovies.values.toList())
+            }
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground)
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Top Movies by Revenue", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(
+                "Top Movies by Revenue", 
+                style = MaterialTheme.typography.titleLarge, 
+                fontWeight = FontWeight.Bold, 
+                color = TextPrimary
+            )
             
-            val maxRevenue = state.topMovies.values.maxOrNull()?.toDouble() ?: 1.0
-            state.topMovies.forEach { (title, revenue) ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(title, fontSize = 14.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
-                        Text("₹${revenue.toInt()}", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = PrimaryAccent)
+            CartesianChartHost(
+                chart = rememberCartesianChart(
+                    rememberColumnCartesianLayer(),
+                    startAxis = rememberStartAxis(),
+                    bottomAxis = rememberBottomAxis(
+                        valueFormatter = { value, _, _ -> 
+                            movieTitles.getOrNull(value.toInt())?.take(10) ?: ""
+                        }
+                    ),
+                ),
+                modelProducer = modelProducer,
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+            )
+            
+            // Legend
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                state.topMovies.forEach { (title, revenue) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(8.dp).background(PrimaryAccent, CircleShape))
+                            Spacer(Modifier.width(8.dp))
+                            Text(title, fontSize = 12.sp, color = TextPrimary)
+                        }
+                        Text("₹${revenue.toInt()}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = PrimaryAccent)
                     }
-                    LinearProgressIndicator(
-                        progress = { (revenue / maxRevenue).toFloat() },
-                        modifier = Modifier.fillMaxWidth().height(8.dp),
-                        color = PrimaryAccent,
-                        trackColor = PrimaryAccent.copy(alpha = 0.1f),
-                        strokeCap = StrokeCap.Round
-                    )
                 }
             }
         }

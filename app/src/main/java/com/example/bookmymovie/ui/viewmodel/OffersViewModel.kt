@@ -17,7 +17,7 @@ class OffersViewModel : ViewModel() {
 
     private val _allOffers = MutableStateFlow<List<Offer>>(emptyList())
     
-    private val _selectedCategory = MutableStateFlow(OfferCategory.BANK_PAYMENT)
+    private val _selectedCategory = MutableStateFlow(OfferCategory.THEATRE_SPECIFIC)
     val selectedCategory: StateFlow<OfferCategory> = _selectedCategory.asStateFlow()
 
     private val _filteredOffers = MutableStateFlow<List<Offer>>(emptyList())
