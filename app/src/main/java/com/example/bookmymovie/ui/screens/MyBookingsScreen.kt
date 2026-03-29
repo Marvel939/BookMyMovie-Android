@@ -169,7 +169,7 @@ private fun BookingHistoryCard(
                     Text("₹${booking.totalAmount}", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
 
-                if (booking.status == "confirmed" && booking.refundStatus != "succeeded") {
+                if (booking.status == "confirmed" && (booking.refundStatus == "none" || booking.refundStatus == "")) {
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = { showRefundDialog = true },

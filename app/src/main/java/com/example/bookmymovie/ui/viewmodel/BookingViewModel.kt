@@ -705,25 +705,86 @@ class BookingViewModel : ViewModel() {
             return
         }
         isRefunding = true
-        refundError = null
         refundMessage = null
+        refundError = null
 
-        val data = hashMapOf("bookingId" to bookingId)
-        Firebase.functions
-            .getHttpsCallable("requestBookingRefund")
-            .call(data)
-            .addOnSuccessListener {
-                isRefunding = false
-                refundMessage = "Refund processed successfully"
-                loadMyBookings()
-                onComplete(true, refundMessage!!)
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+            onComplete(false, "Not logged in")
+            return
+        }
+        val db = FirebaseDatabase.getInstance()
+
+        // Fetch latest bookings directly to ensure validation is 100% accurate
+        db.getReference("bookings").child(uid).get().addOnSuccessListener { snapshot ->
+            val latestBookings = snapshot.children.mapNotNull { child ->
+                try {
+                    Booking(
+                        bookingId = child.child("bookingId").getValue(String::class.java) ?: "",
+                        movieId = child.child("movieId").getValue(String::class.java) ?: "",
+                        movieName = child.child("movieName").getValue(String::class.java) ?: "",
+                        status = child.child("status").getValue(String::class.java) ?: "confirmed",
+                        refundStatus = child.child("refundStatus").getValue(String::class.java) ?: "none"
+                    )
+                } catch (e: Exception) { null }
             }
-            .addOnFailureListener { e ->
-                isRefunding = false
-                val msg = e.message ?: "Refund request failed"
-                refundError = msg
-                onComplete(false, msg)
+
+            val currentBooking = latestBookings.find { it.bookingId == bookingId }
+            if (currentBooking != null) {
+                val alreadyRefunded = latestBookings.any { 
+                    (it.movieId.trim() == currentBooking.movieId.trim() || 
+                     it.movieName.trim().lowercase() == currentBooking.movieName.trim().lowercase()) && 
+                    it.bookingId != currentBooking.bookingId && 
+                    (it.refundStatus == "succeeded" || it.refundStatus == "pending" || it.refundStatus == "requested" || it.status == "cancelled")
+                }
+                if (alreadyRefunded) {
+                    isRefunding = false
+                    val msg = "Cannot initiate refund"
+                    refundError = msg
+                    onComplete(false, msg)
+                    return@addOnSuccessListener
+                }
             }
+
+            // If not already refunded, proceed to call Cloud Function
+            val data = hashMapOf("bookingId" to bookingId)
+            Firebase.functions
+                .getHttpsCallable("requestBookingRefund")
+                .call(data)
+                .addOnSuccessListener {
+                    // Release seats in Firebase upon successful refund
+                    val bookingSnapshot = snapshot.children.find { it.child("bookingId").value == bookingId }
+                    if (bookingSnapshot != null) {
+                        val pId = bookingSnapshot.child("placeId").getValue(String::class.java) ?: ""
+                        val sId = bookingSnapshot.child("screenId").getValue(String::class.java) ?: ""
+                        val stId = bookingSnapshot.child("showtimeId").getValue(String::class.java) ?: ""
+                        val seatsList = bookingSnapshot.child("seats").children.mapNotNull { it.getValue(String::class.java) }
+
+                        if (pId.isNotBlank() && sId.isNotBlank() && stId.isNotBlank()) {
+                            val seatsRef = db.getReference("seats").child(pId).child(sId).child(stId)
+                            seatsList.forEach { seatId ->
+                                seatsRef.child(seatId).child("booked").setValue(false)
+                                seatsRef.child(seatId).child("bookedByUid").setValue("")
+                            }
+                        }
+                    }
+
+                    isRefunding = false
+                    refundMessage = "Refund processed successfully"
+                    loadMyBookings()
+                    onComplete(true, refundMessage!!)
+                }
+                .addOnFailureListener { e ->
+                    isRefunding = false
+                    val msg = e.message ?: "Refund request failed"
+                    refundError = msg
+                    onComplete(false, msg)
+                }
+        }.addOnFailureListener { e ->
+            isRefunding = false
+            val msg = e.message ?: "Failed to verify booking status"
+            refundError = msg
+            onComplete(false, msg)
+        }
     }
 
     // ── Admin: check if current user is admin ────────────────────────────────
