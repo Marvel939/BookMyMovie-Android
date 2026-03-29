@@ -18,6 +18,11 @@ enum class DiscountType {
     FIXED_AMOUNT
 }
 
+enum class CouponType {
+    DISCOUNT,
+    CASHBACK
+}
+
 data class Offer(
     val id: String = "",
     val title: String = "",
@@ -39,6 +44,7 @@ data class Offer(
     
     // Coupon specifics
     val couponCode: String = "",
+    val couponType: String = CouponType.DISCOUNT.name,
     val startDate: Long = 0,
     val endDate: Long = 0,
     val maxRedemptionsPerUser: Int = 1,
@@ -69,6 +75,14 @@ data class Offer(
             DiscountType.valueOf(discountType)
         } catch (e: Exception) {
             DiscountType.PERCENTAGE
+        }
+    }
+
+    fun getCouponTypeEnum(): CouponType {
+        return try {
+            CouponType.valueOf(couponType)
+        } catch (e: Exception) {
+            CouponType.DISCOUNT
         }
     }
 }

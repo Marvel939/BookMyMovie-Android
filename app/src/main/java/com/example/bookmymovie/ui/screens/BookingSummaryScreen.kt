@@ -41,6 +41,7 @@ fun BookingSummaryScreen(
 ) {
     val appliedCoupon by offersViewModel.appliedCoupon.collectAsState()
     val discountAmount by offersViewModel.discountAmount.collectAsState()
+    val cashbackAmount by offersViewModel.cashbackAmount.collectAsState()
     val isCouponApplying by offersViewModel.isApplying.collectAsState()
     val couponErrorMessage by offersViewModel.errorMessage.collectAsState()
     
@@ -70,7 +71,8 @@ fun BookingSummaryScreen(
                         moviePoster = it.moviePoster,
                         paymentMethod = "stripe",
                         discountAmount = discountAmount.toInt(),
-                        discountCode = appliedCoupon?.couponCode ?: ""
+                        discountCode = appliedCoupon?.couponCode ?: "",
+                        cashbackAmount = cashbackAmount.toInt()
                     )
                 }
             }
@@ -149,14 +151,22 @@ fun BookingSummaryScreen(
                             isLoading = isCouponApplying,
                             errorMessage = couponErrorMessage,
                             isApplied = appliedCoupon != null,
-                            discountAmount = discountAmount
+                            discountAmount = if (cashbackAmount > 0) cashbackAmount else discountAmount
                         )
+                        if (appliedCoupon != null && cashbackAmount > 0) {
+                            Text(
+                                text = "₹${cashbackAmount.toInt()} cashback will be added to your wallet after booking",
+                                color = SuccessGreen,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                         Spacer(Modifier.height(12.dp))
                         HorizontalDivider(color = DividerColor)
                         Spacer(Modifier.height(6.dp))
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
                             Text("Total Payable", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            val finalPayable = maxOf(0, bookingViewModel.totalAmount - discountAmount.toInt())
+                            val finalPayable = maxOf(0.0, bookingViewModel.totalAmount.toDouble() - discountAmount - cashbackAmount).toInt()
                             Text("₹$finalPayable", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         }
                         Spacer(Modifier.height(10.dp))
@@ -185,10 +195,10 @@ fun BookingSummaryScreen(
                         }
                         Spacer(Modifier.height(12.dp))
                         val isBusy = bookingViewModel.isCreatingBooking || bookingViewModel.isRequestingPayment
-                        Button(
+                         Button(
                             onClick = {
                                 paymentSheetError = null
-                                val finalAmount = maxOf(0, bookingViewModel.totalAmount - discountAmount.toInt())
+                                val finalAmount = maxOf(0.0, bookingViewModel.totalAmount.toDouble() - discountAmount - cashbackAmount).toInt()
 
                                 if (selectedPaymentMethod == "wallet") {
                                     showtime?.let {
@@ -203,6 +213,7 @@ fun BookingSummaryScreen(
                                             return@let
                                         }
                                         bookingViewModel.processWalletPayment(
+                                            amount = finalAmount,
                                             onSuccess = { walletTxId ->
                                                 bookingViewModel.confirmBooking(
                                                     movieId = it.movieId,
@@ -211,7 +222,8 @@ fun BookingSummaryScreen(
                                                     paymentMethod = "wallet",
                                                     paymentReference = walletTxId,
                                                     discountAmount = discountAmount.toInt(),
-                                                    discountCode = appliedCoupon?.couponCode ?: ""
+                                                    discountCode = appliedCoupon?.couponCode ?: "",
+                                                    cashbackAmount = cashbackAmount.toInt()
                                                 )
                                             },
                                             onError = { err ->
@@ -226,6 +238,7 @@ fun BookingSummaryScreen(
                                     }
                                 } else {
                                     bookingViewModel.fetchPaymentIntent(
+                                        amount = finalAmount,
                                         onSecret = { clientSecret ->
                                             paymentSheet.presentWithPaymentIntent(
                                                 clientSecret,

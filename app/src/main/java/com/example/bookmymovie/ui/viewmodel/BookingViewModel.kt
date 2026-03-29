@@ -269,11 +269,11 @@ class BookingViewModel : ViewModel() {
     }
 
     // ── Fetch Stripe PaymentIntent clientSecret ──────────────────────────────
-    fun fetchPaymentIntent(onSecret: (String) -> Unit, onError: (String) -> Unit) {
+    fun fetchPaymentIntent(amount: Int, onSecret: (String) -> Unit, onError: (String) -> Unit) {
         isRequestingPayment = true
         paymentError = null
         pendingPaymentIntentId = null
-        val data = hashMapOf("amount" to totalAmount)
+        val data = hashMapOf("amount" to amount)
         Firebase.functions
             .getHttpsCallable("createPaymentIntent")
             .call(data)
@@ -298,10 +298,10 @@ class BookingViewModel : ViewModel() {
             }
     }
 
-    fun processWalletPayment(onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+    fun processWalletPayment(amount: Int, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
         isRequestingPayment = true
         paymentError = null
-        val data = hashMapOf("amount" to totalAmount)
+        val data = hashMapOf("amount" to amount)
         Firebase.functions
             .getHttpsCallable("processWalletPayment")
             .call(data)
@@ -360,8 +360,9 @@ class BookingViewModel : ViewModel() {
                 "time"        to booking.time,
                 "language"    to booking.language,
                 "seats"       to booking.seats,
-                "discountAmount" to booking.discountAmount,
-                "discountCode" to booking.discountCode,
+                "discountAmount" to (booking.discountAmount + booking.cashbackAmount),
+                "discountCode" to if (booking.cashbackAmount > 0) "${booking.discountCode} (Cashback)" else booking.discountCode,
+                "cashbackAmount" to booking.cashbackAmount,
                 "totalAmount" to booking.totalAmount
             )
         )
@@ -393,8 +394,9 @@ class BookingViewModel : ViewModel() {
                             "time"        to booking.time,
                             "language"    to booking.language,
                             "seats"       to booking.seats,
-                            "discountAmount" to booking.discountAmount,
-                            "discountCode" to booking.discountCode,
+                            "discountAmount" to (booking.discountAmount + booking.cashbackAmount),
+                            "discountCode" to if (booking.cashbackAmount > 0) "${booking.discountCode} (Cashback)" else booking.discountCode,
+                            "cashbackAmount" to booking.cashbackAmount,
                             "totalAmount" to booking.totalAmount
                         )
                     )
@@ -443,7 +445,8 @@ class BookingViewModel : ViewModel() {
         paymentMethod: String = "stripe",
         paymentReference: String? = null,
         discountAmount: Int = 0,
-        discountCode: String = ""
+        discountCode: String = "",
+        cashbackAmount: Int = 0
     ) {
         val showtime = selectedShowtime ?: return
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -516,9 +519,10 @@ class BookingViewModel : ViewModel() {
                     ticketGstAmount = ticketGstAmount,
                     convenienceFeeAmount = convenienceFeeAmount,
                     convenienceFeeGstAmount = convenienceFeeGstAmount,
-                    totalAmount = java.lang.Math.max(0, totalAmount - discountAmount),
+                    totalAmount = java.lang.Math.max(0, totalAmount - (discountAmount + cashbackAmount)),
                     discountAmount = discountAmount,
-                    discountCode = discountCode,
+                    discountCode = discountCode.uppercase().trim(),
+                    cashbackAmount = cashbackAmount,
                     refundableAmount = refundableAmount,
                     nonRefundableAmount = nonRefundableAmount,
                     paymentIntentId = paymentIntentId,
@@ -538,6 +542,29 @@ class BookingViewModel : ViewModel() {
                             .setValue(bookingToMap(booking))
                         confirmedBooking = booking
                         isCreatingBooking = false
+                        
+                        // Handle Cashback
+                        if (cashbackAmount > 0) {
+                            val userRef = db.getReference("users").child(uid)
+                            userRef.child("walletBalance").get().addOnSuccessListener { snapshot ->
+                                val currentBalance = snapshot.getValue(Double::class.java) ?: 0.0
+                                userRef.child("walletBalance").setValue(currentBalance + cashbackAmount)
+                                
+                                // Create transaction record
+                                val txId = "tx_${System.currentTimeMillis()}"
+                                val txData = mapOf(
+                                    "txId" to txId,
+                                    "type" to "credit",
+                                    "amount" to cashbackAmount,
+                                    "movieName" to booking.movieName,
+                                    "bookingId" to booking.bookingId,
+                                    "note" to "Cashback credited to wallet",
+                                    "createdAt" to System.currentTimeMillis()
+                                )
+                                userRef.child("wallet_transactions").child(txId).setValue(txData)
+                            }
+                        }
+
                         sendBookingEmail(booking)
                         sendBookingWhatsApp(booking)
                         pendingPaymentIntentId = null
@@ -589,6 +616,7 @@ class BookingViewModel : ViewModel() {
         "totalAmount" to b.totalAmount,
         "discountAmount" to b.discountAmount,
         "discountCode" to b.discountCode,
+        "cashbackAmount" to b.cashbackAmount,
         "appliedCouponId" to b.appliedCouponId,
         "refundableAmount" to b.refundableAmount,
         "nonRefundableAmount" to b.nonRefundableAmount,
@@ -648,6 +676,7 @@ class BookingViewModel : ViewModel() {
                                 convenienceFeeGstAmount = convenienceFeeGstAmount,
                                 discountAmount = child.child("discountAmount").getValue(Int::class.java) ?: 0,
                                 discountCode = child.child("discountCode").getValue(String::class.java) ?: "",
+                                cashbackAmount = child.child("cashbackAmount").getValue(Int::class.java) ?: 0,
                                 appliedCouponId = child.child("appliedCouponId").getValue(String::class.java) ?: "",
                                 totalAmount = child.child("totalAmount").getValue(Int::class.java) ?: 0,
                                 refundableAmount = child.child("refundableAmount").getValue(Int::class.java) ?: fallbackRefundable,

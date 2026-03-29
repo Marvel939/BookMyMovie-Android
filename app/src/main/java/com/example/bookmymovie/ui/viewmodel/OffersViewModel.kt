@@ -11,6 +11,9 @@ import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.google.firebase.auth.FirebaseAuth
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 
 class OffersViewModel : ViewModel() {
     private val database = FirebaseDatabase.getInstance().reference
@@ -35,6 +38,9 @@ class OffersViewModel : ViewModel() {
 
     private val _discountAmount = MutableStateFlow(0.0)
     val discountAmount: StateFlow<Double> = _discountAmount.asStateFlow()
+
+    private val _cashbackAmount = MutableStateFlow(0.0)
+    val cashbackAmount: StateFlow<Double> = _cashbackAmount.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -86,7 +92,7 @@ class OffersViewModel : ViewModel() {
         _isApplying.value = true
         _errorMessage.value = null
 
-        val upperCode = couponCode.uppercase()
+        val upperCode = couponCode.uppercase().trim()
         val offer = _allOffers.value.find { it.couponCode == upperCode }
 
         if (offer == null) {
@@ -95,6 +101,41 @@ class OffersViewModel : ViewModel() {
             return
         }
 
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid == null) {
+            _errorMessage.value = "User not logged in."
+            _isApplying.value = false
+            return
+        }
+
+        // Check redemption limit
+        database.child("bookings").child(uid).orderByChild("discountCode").equalTo(upperCode)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val usedCount = snapshot.childrenCount.toInt()
+                    if (usedCount >= offer.maxRedemptionsPerUser) {
+                        _errorMessage.value = "Coupon already used."
+                        _isApplying.value = false
+                        return
+                    }
+                    
+                    // Continue with other validations
+                    validateAndApply(offer, bookingAmount, theatreId, movieId)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    _errorMessage.value = "Failed to verify coupon usage."
+                    _isApplying.value = false
+                }
+            })
+    }
+
+    private fun validateAndApply(
+        offer: Offer,
+        bookingAmount: Double,
+        theatreId: String?,
+        movieId: String?
+    ) {
         // Strict validation: Theatre & Movie Check
         if (offer.getCategoryEnum() == OfferCategory.THEATRE_SPECIFIC || 
             offer.getCategoryEnum() == OfferCategory.MOVIE_SPECIFIC ||
@@ -133,8 +174,8 @@ class OffersViewModel : ViewModel() {
             return
         }
 
-        // Calculate Discount
-        val discount = if (offer.getDiscountTypeEnum() == com.example.bookmymovie.model.DiscountType.PERCENTAGE) {
+        // Calculate Value (either discount or cashback)
+        val calculatedValue = if (offer.getDiscountTypeEnum() == com.example.bookmymovie.model.DiscountType.PERCENTAGE) {
             val percDist = (bookingAmount * offer.discountPercentage) / 100.0
             if (offer.maxDiscountAmount > 0 && percDist > offer.maxDiscountAmount) {
                 offer.maxDiscountAmount.toDouble()
@@ -145,10 +186,16 @@ class OffersViewModel : ViewModel() {
             offer.discountAmount.toDouble()
         }
 
-        if (discount > bookingAmount) {
-            _discountAmount.value = bookingAmount
+        if (offer.getCouponTypeEnum() == com.example.bookmymovie.model.CouponType.CASHBACK) {
+            _discountAmount.value = 0.0
+            _cashbackAmount.value = calculatedValue
         } else {
-            _discountAmount.value = discount
+            if (calculatedValue > bookingAmount) {
+                _discountAmount.value = bookingAmount
+            } else {
+                _discountAmount.value = calculatedValue
+            }
+            _cashbackAmount.value = 0.0
         }
 
         _appliedCoupon.value = offer
@@ -158,6 +205,7 @@ class OffersViewModel : ViewModel() {
     fun removeCoupon() {
         _appliedCoupon.value = null
         _discountAmount.value = 0.0
+        _cashbackAmount.value = 0.0
         _errorMessage.value = null
     }
 }

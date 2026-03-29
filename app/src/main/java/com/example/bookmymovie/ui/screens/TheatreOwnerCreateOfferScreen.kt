@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.bookmymovie.model.CouponType
 import com.example.bookmymovie.model.DiscountType
 import com.example.bookmymovie.model.Offer
 import com.example.bookmymovie.model.OfferApprovalStatus
@@ -49,6 +50,7 @@ fun TheatreOwnerCreateOfferScreen(
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var couponCode by remember { mutableStateOf("") }
+    var couponType by remember { mutableStateOf(CouponType.DISCOUNT) }
     var discountType by remember { mutableStateOf(DiscountType.PERCENTAGE) }
     var category by remember { mutableStateOf(OfferCategory.THEATRE_SPECIFIC) }
     
@@ -157,6 +159,18 @@ fun TheatreOwnerCreateOfferScreen(
                     focusedBorderColor = PrimaryAccent, unfocusedBorderColor = DividerColor
                 )
             )
+
+            // Coupon Category Selection
+            Text("Coupon Category", color = TextPrimary, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(CouponType.DISCOUNT, CouponType.CASHBACK).forEach { type ->
+                    FilterChip(
+                        selected = couponType == type,
+                        onClick = { couponType = type },
+                        label = { Text(if (type == CouponType.DISCOUNT) "Discount Coupon" else "Cashback Coupon") }
+                    )
+                }
+            }
 
             // Theatre Selector
             ExposedDropdownMenuBox(
@@ -425,12 +439,13 @@ fun TheatreOwnerCreateOfferScreen(
                     val offer = Offer(
                         title = title,
                         description = description,
-                        couponCode = couponCode,
+                        couponCode = couponCode.uppercase().trim(),
                         theatreOwnerId = theatreOwnerId,
                         theatreId = selectedTheatreId,
                         theatreName = selectedTheatreName,
                         movieId = if (category == OfferCategory.MOVIE_SPECIFIC) selectedMovieId else "",
                         category = category.name,
+                        couponType = couponType.name,
                         discountType = discountType.name,
                         discountPercentage = discountPercentageStr.toIntOrNull() ?: 0,
                         discountAmount = discountAmountStr.toIntOrNull() ?: 0,

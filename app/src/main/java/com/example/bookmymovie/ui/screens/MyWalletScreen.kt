@@ -130,7 +130,11 @@ fun MyWalletScreen(navController: NavController) {
                         ) {
                             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
-                                    if (tx.type == "credit") "Refund Credit" else "Wallet Debit",
+                                    text = when {
+                                        tx.type == "credit" && tx.note.contains("Cashback", ignoreCase = true) -> "Cashback Credit"
+                                        tx.type == "credit" -> "Refund Credit"
+                                        else -> "Wallet Debit"
+                                    },
                                     color = TextPrimary,
                                     fontWeight = FontWeight.SemiBold
                                 )

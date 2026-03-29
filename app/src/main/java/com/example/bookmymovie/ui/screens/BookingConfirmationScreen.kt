@@ -125,6 +125,10 @@ fun BookingConfirmationScreen(
                         TicketRow("Discount (${booking.discountCode})", "-₹${booking.discountAmount}")
                         Spacer(Modifier.height(8.dp))
                     }
+                    if (booking.cashbackAmount > 0) {
+                        TicketRow("Cashback (${booking.discountCode})", "₹${booking.cashbackAmount}")
+                        Spacer(Modifier.height(8.dp))
+                    }
 
                     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                         Text("Total Paid", color = TextSecondary, fontSize = 14.sp)

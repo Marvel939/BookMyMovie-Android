@@ -146,6 +146,10 @@ private fun BookingHistoryCard(
                     Text("Discount (${booking.discountCode}): -₹${booking.discountAmount}", color = androidx.compose.ui.graphics.Color(0xFF2ECC71), fontSize = 12.sp)
                     Spacer(Modifier.height(6.dp))
                 }
+                if (booking.cashbackAmount > 0) {
+                    Text("Cashback (${booking.discountCode}): ₹${booking.cashbackAmount}", color = androidx.compose.ui.graphics.Color(0xFF2ECC71), fontSize = 12.sp)
+                    Spacer(Modifier.height(6.dp))
+                }
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

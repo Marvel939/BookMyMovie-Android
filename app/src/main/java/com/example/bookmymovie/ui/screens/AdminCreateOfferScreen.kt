@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.bookmymovie.model.CouponType
 import com.example.bookmymovie.model.DiscountType
 import com.example.bookmymovie.model.Offer
 import com.example.bookmymovie.model.OfferApprovalStatus
@@ -49,11 +50,13 @@ fun AdminCreateOfferScreen(
     var description by remember { mutableStateOf("") }
     var couponCode by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(OfferCategory.THEATRE_SPECIFIC) }
+    var couponType by remember { mutableStateOf(CouponType.DISCOUNT) }
     var discountType by remember { mutableStateOf(DiscountType.PERCENTAGE) }
     var discountPercentageStr by remember { mutableStateOf("") }
     var discountAmountStr by remember { mutableStateOf("") }
     var maxDiscountAmountStr by remember { mutableStateOf("") }
     var minOrderAmountStr by remember { mutableStateOf("") }
+    var maxRedemptionsStr by remember { mutableStateOf("1") }
 
     var selectedTheatreId by remember { mutableStateOf("ALL") }
     var selectedTheatreName by remember { mutableStateOf("Across all theatres") }
@@ -133,6 +136,18 @@ fun AdminCreateOfferScreen(
             AdminTextField("Offer Title", title) { title = it }
             AdminTextField("Description", description) { description = it }
             AdminTextField("Coupon Code (Ex: SAVE50)", couponCode) { couponCode = it.uppercase() }
+
+            // Coupon Category Selection
+            Text("Coupon Category", color = TextPrimary, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(CouponType.DISCOUNT, CouponType.CASHBACK).forEach { type ->
+                    FilterChip(
+                        selected = couponType == type,
+                        onClick = { couponType = type },
+                        label = { Text(if (type == CouponType.DISCOUNT) "Discount Coupon" else "Cashback Coupon") }
+                    )
+                }
+            }
 
             // Category Selection
             Text("Offer Category", color = TextPrimary, fontWeight = FontWeight.Bold)
@@ -255,6 +270,7 @@ fun AdminCreateOfferScreen(
             }
 
             AdminTextField("Min Order Amount (₹)", minOrderAmountStr, KeyboardType.Number) { minOrderAmountStr = it }
+            AdminTextField("Max Redemptions Per User", maxRedemptionsStr, KeyboardType.Number) { maxRedemptionsStr = it }
 
             // Date Selection
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -301,16 +317,18 @@ fun AdminCreateOfferScreen(
                     val offer = Offer(
                         title = title,
                         description = description,
-                        couponCode = couponCode,
+                        couponCode = couponCode.uppercase().trim(),
                         theatreId = if (selectedTheatreId == "ALL") "" else selectedTheatreId,
                         theatreName = if (selectedTheatreId == "ALL") "All Theatres" else selectedTheatreName,
                         movieId = if (selectedMovieId == "ALL") "" else selectedMovieId,
                         category = finalCategory.name,
+                        couponType = couponType.name,
                         discountType = discountType.name,
                         discountPercentage = discountPercentageStr.toIntOrNull() ?: 0,
                         discountAmount = discountAmountStr.toIntOrNull() ?: 0,
                         maxDiscountAmount = maxDiscountAmountStr.toIntOrNull() ?: 0,
                         minOrderAmount = minOrderAmountStr.toIntOrNull() ?: 0,
+                        maxRedemptionsPerUser = maxRedemptionsStr.toIntOrNull() ?: 1,
                         startDate = startMillis,
                         endDate = endMillis,
                         theatreOwnerId = "ADMIN_PLATFORM",

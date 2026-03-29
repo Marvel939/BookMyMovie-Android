@@ -71,6 +71,7 @@ data class Booking(
     val totalAmount: Int = 0,
     val discountAmount: Int = 0,
     val discountCode: String = "",
+    val cashbackAmount: Int = 0,
     val appliedCouponId: String = "",
     val refundableAmount: Int = 0,
     val nonRefundableAmount: Int = 0,
