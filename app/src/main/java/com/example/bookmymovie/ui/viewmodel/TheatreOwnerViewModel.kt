@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.bookmymovie.data.api.RetrofitClient
 import com.example.bookmymovie.data.repository.MovieRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.example.bookmymovie.model.Offer
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -141,6 +142,10 @@ class TheatreOwnerViewModel : ViewModel() {
     var cinemaNameMap by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
+    // Offers created by this owner
+    var ownerOffers by mutableStateOf<List<Offer>>(emptyList())
+        private set
+
     // Approved showtimes (admin view)
     var approvedShowtimesList by mutableStateOf<List<ShowtimeRequest>>(emptyList())
         private set
@@ -269,6 +274,7 @@ class TheatreOwnerViewModel : ViewModel() {
                     ownerStatus = ownerProfile?.status
                     loadOwnerScreens()
                     loadMyShowtimeRequests()
+                    loadOwnerOffers()
                 }
             }
             .addOnFailureListener { isLoadingProfile = false }
@@ -347,6 +353,21 @@ class TheatreOwnerViewModel : ViewModel() {
                     list.add(parseShowtimeRequest(child))
                 }
                 myShowtimeRequests = list.sortedByDescending { it.submittedAt }
+            }
+    }
+
+    fun loadOwnerOffers() {
+        val uid = auth.currentUser?.uid ?: return
+        db.getReference("offers")
+            .orderByChild("theatreOwnerId").equalTo(uid)
+            .get()
+            .addOnSuccessListener { snap ->
+                val list = mutableListOf<Offer>()
+                snap.children.forEach { child ->
+                    val offer = child.getValue(Offer::class.java)
+                    if (offer != null) list.add(offer)
+                }
+                ownerOffers = list.sortedByDescending { it.startDate }
             }
     }
 
