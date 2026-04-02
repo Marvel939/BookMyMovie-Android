@@ -17,6 +17,9 @@ class OfferAdminViewModel : ViewModel() {
     private val _pendingOffers = MutableStateFlow<List<Offer>>(emptyList())
     val pendingOffers: StateFlow<List<Offer>> = _pendingOffers.asStateFlow()
 
+    private val _approvedOffers = MutableStateFlow<List<Offer>>(emptyList())
+    val approvedOffers: StateFlow<List<Offer>> = _approvedOffers.asStateFlow()
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -25,6 +28,7 @@ class OfferAdminViewModel : ViewModel() {
 
     init {
         loadPendingOffers()
+        loadApprovedOffers()
         loadHistoryOffers()
     }
 
@@ -50,6 +54,23 @@ class OfferAdminViewModel : ViewModel() {
 
     fun updateOfferStatus(offerId: String, newStatus: OfferApprovalStatus) {
         database.child("offers").child(offerId).child("approvalStatus").setValue(newStatus.name)
+    }
+
+    private fun loadApprovedOffers() {
+        database.child("offers").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val list = mutableListOf<Offer>()
+                for (child in snapshot.children) {
+                    val offer = child.getValue(Offer::class.java)
+                    if (offer != null && offer.approvalStatus == OfferApprovalStatus.APPROVED.name) {
+                        list.add(offer)
+                    }
+                }
+                _approvedOffers.value = list.sortedByDescending { it.startDate }
+            }
+
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     private fun loadHistoryOffers() {

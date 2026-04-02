@@ -68,6 +68,18 @@ data class ShowtimeRequest(
     val rejectedReason: String = ""
 )
 
+data class OfferUsage(
+    val offerId: String = "",
+    val offerTitle: String = "",
+    val couponCode: String = "",
+    val userId: String = "",
+    val userName: String = "",
+    val userEmail: String = "",
+    val timesUsed: Int = 0,
+    val maxRedemptionsPerUser: Int = 1,
+    val isExpired: Boolean = false
+)
+
 data class ConflictResult(
     val hasConflict: Boolean = false,
     val isPending: Boolean = false,
@@ -144,6 +156,10 @@ class TheatreOwnerViewModel : ViewModel() {
 
     // Offers created by this owner
     var ownerOffers by mutableStateOf<List<Offer>>(emptyList())
+        private set
+
+    // Offer usage for theatre owner (which users used their offers)
+    var ownerOfferUsage by mutableStateOf<List<OfferUsage>>(emptyList())
         private set
 
     // Approved showtimes (admin view)
@@ -340,6 +356,34 @@ class TheatreOwnerViewModel : ViewModel() {
             .addOnFailureListener { onError(it.message ?: "Failed") }
     }
 
+    fun updateScreen(
+        screenId: String,
+        screenName: String,
+        screenType: String,
+        silverSeats: Int,
+        goldSeats: Int,
+        platinumSeats: Int,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val placeId = ownerProfile?.placeId ?: run { onError("No cinema linked"); return }
+        val data = mapOf(
+            "screenId" to screenId,
+            "screenName" to screenName,
+            "screenType" to screenType,
+            "silverSeats" to silverSeats,
+            "goldSeats" to goldSeats,
+            "platinumSeats" to platinumSeats,
+            "totalSeats" to (silverSeats + goldSeats + platinumSeats)
+        )
+        db.getReference("cinema_screens").child(placeId).child(screenId).updateChildren(data)
+            .addOnSuccessListener {
+                loadOwnerScreens()
+                onSuccess()
+            }
+            .addOnFailureListener { onError(it.message ?: "Failed") }
+    }
+
     // ─── Showtime Requests ────────────────────────────────────────────────────
 
     fun loadMyShowtimeRequests() {
@@ -360,15 +404,20 @@ class TheatreOwnerViewModel : ViewModel() {
         val uid = auth.currentUser?.uid ?: return
         db.getReference("offers")
             .orderByChild("theatreOwnerId").equalTo(uid)
-            .get()
-            .addOnSuccessListener { snap ->
-                val list = mutableListOf<Offer>()
-                snap.children.forEach { child ->
-                    val offer = child.getValue(Offer::class.java)
-                    if (offer != null) list.add(offer)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val list = mutableListOf<Offer>()
+                    snapshot.children.forEach { child ->
+                        val offer = child.getValue(Offer::class.java)
+                        if (offer != null) list.add(offer)
+                    }
+                    ownerOffers = list.sortedByDescending { it.startDate }
                 }
-                ownerOffers = list.sortedByDescending { it.startDate }
-            }
+
+                override fun onCancelled(error: DatabaseError) {
+                    // Handle error silently
+                }
+            })
     }
 
     fun checkConflict(

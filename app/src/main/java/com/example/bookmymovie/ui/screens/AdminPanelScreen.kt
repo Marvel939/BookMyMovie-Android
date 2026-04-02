@@ -593,6 +593,7 @@ private fun HistoryOffersTab(vm: OfferAdminViewModel) {
 @Composable
 private fun OfferHistoryCard(offer: com.example.bookmymovie.model.Offer) {
     val statusColor = if (offer.approvalStatus == com.example.bookmymovie.model.OfferApprovalStatus.APPROVED.name) SafetyGreen else ErrorRed
+    val creatorName = if (offer.theatreOwnerId == "ADMIN_PLATFORM") "Admin" else offer.theatreName
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -612,7 +613,7 @@ private fun OfferHistoryCard(offer: com.example.bookmymovie.model.Offer) {
             Text(offer.description, color = TextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
             Text("Coupon: ${offer.couponCode}", color = PrimaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            Text("Theatre: ${offer.theatreName}", color = TextSecondary, fontSize = 11.sp)
+            Text("by $creatorName", color = TextSecondary, fontSize = 11.sp)
         }
     }
 }

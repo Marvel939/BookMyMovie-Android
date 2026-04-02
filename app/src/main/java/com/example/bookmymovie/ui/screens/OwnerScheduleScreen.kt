@@ -88,6 +88,13 @@ fun OwnerScheduleScreen(navController: NavController) {
         vm.checkConflict(placeId, scr.screenId, d, t, movieDurationMinutes)
     }
 
+    // Auto-select format when screen is selected
+    LaunchedEffect(selectedScreen) {
+        selectedScreen?.let {
+            selectedFormat = it.screenType
+        }
+    }
+
     // Date picker
     val cal = Calendar.getInstance()
     val datePicker = DatePickerDialog(
@@ -159,7 +166,7 @@ fun OwnerScheduleScreen(navController: NavController) {
             }
 
             // ── Step 2: Select Screen ───────────────────────────────────────
-            SectionCard(title = "2. Select Screen", icon = Icons.Default.ScreenShare) {
+            SectionCard(title = "2. Select Screen", icon = Icons.Default.Tv) {
                 if (vm.ownerScreens.isEmpty()) {
                     Text("No screens available. Add a screen from the panel first.",
                         color = TextSecondary, fontSize = 13.sp)
@@ -245,20 +252,39 @@ fun OwnerScheduleScreen(navController: NavController) {
 
             // ── Step 6: Format ──────────────────────────────────────────────
             SectionCard(title = "6. Format", icon = Icons.Default.Theaters) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(FORMATS) { fmt ->
-                        FilterChip(
-                            selected = selectedFormat == fmt,
-                            onClick = { selectedFormat = fmt },
-                            label = { Text(fmt, fontSize = 13.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = PrimaryAccent,
-                                selectedLabelColor = Color.White,
-                                containerColor = SecondaryBackground,
-                                labelColor = TextSecondary
+                if (selectedScreen != null) {
+                    // Format is auto-selected from screen type and disabled
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = PrimaryAccent.copy(alpha = 0.15f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                selectedFormat,
+                                color = PrimaryAccent,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
                             )
-                        )
+                        }
                     }
+                    Text(
+                        "Format is automatically set based on the selected screen",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                } else {
+                    Text(
+                        "Please select a screen first to auto-set the format",
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
                 }
             }
 

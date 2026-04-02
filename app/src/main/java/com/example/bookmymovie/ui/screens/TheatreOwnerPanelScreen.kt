@@ -15,8 +15,10 @@ import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.ScreenShare
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +43,8 @@ fun TheatreOwnerPanelScreen(navController: NavController) {
     val vm: TheatreOwnerViewModel = viewModel()
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAddScreenDialog by remember { mutableStateOf(false) }
+    var showEditScreenDialog by remember { mutableStateOf(false) }
+    var editingScreen by remember { mutableStateOf<OwnerScreen?>(null) }
 
     LaunchedEffect(Unit) { vm.loadOwnerProfile() }
 
@@ -53,6 +57,21 @@ fun TheatreOwnerPanelScreen(navController: NavController) {
                 vm.addScreen(name, type, silver, gold, platinum,
                     onSuccess = { showAddScreenDialog = false },
                     onError = { showAddScreenDialog = false }
+                )
+            }
+        )
+    }
+
+    if (showEditScreenDialog && editingScreen != null) {
+        EditScreenDialog(
+            screen = editingScreen!!,
+            onDismiss = { showEditScreenDialog = false; editingScreen = null },
+            onSave = { name, type, silver, gold, platinum ->
+                vm.updateScreen(
+                    editingScreen!!.screenId,
+                    name, type, silver, gold, platinum,
+                    onSuccess = { showEditScreenDialog = false; editingScreen = null },
+                    onError = { showEditScreenDialog = false; editingScreen = null }
                 )
             }
         )
@@ -146,9 +165,15 @@ fun TheatreOwnerPanelScreen(navController: NavController) {
 
             when (selectedTab) {
                 0 -> TheatreAnalyticsContent()
-                1 -> OwnerScreensTab(vm.ownerScreens, onAddMovie = { screen ->
-                    navController.navigate(Screen.OwnerSchedule.route)
-                })
+                1 -> OwnerScreensTab(vm.ownerScreens, 
+                    onAddMovie = { screen ->
+                        navController.navigate(Screen.OwnerSchedule.route)
+                    },
+                    onEdit = { screen ->
+                        editingScreen = screen
+                        showEditScreenDialog = true
+                    }
+                )
                 2 -> OwnerRequestsTab(vm.myShowtimeRequests)
             }
         }
@@ -158,11 +183,11 @@ fun TheatreOwnerPanelScreen(navController: NavController) {
 // ─── Screens Tab ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun OwnerScreensTab(screens: List<OwnerScreen>, onAddMovie: (OwnerScreen) -> Unit) {
+private fun OwnerScreensTab(screens: List<OwnerScreen>, onAddMovie: (OwnerScreen) -> Unit, onEdit: (OwnerScreen) -> Unit) {
     if (screens.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.ScreenShare, null, tint = TextSecondary, modifier = Modifier.size(56.dp))
+                Icon(Icons.Default.Tv, null, tint = TextSecondary, modifier = Modifier.size(56.dp))
                 Spacer(Modifier.height(16.dp))
                 Text("No screens added yet", color = TextSecondary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 Text("Tap + to add a screen to your cinema", color = TextSecondary, fontSize = 13.sp)
@@ -177,13 +202,13 @@ private fun OwnerScreensTab(screens: List<OwnerScreen>, onAddMovie: (OwnerScreen
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(screens) { screen ->
-            OwnerScreenCard(screen = screen, onSchedule = { onAddMovie(screen) })
+            OwnerScreenCard(screen = screen, onSchedule = { onAddMovie(screen) }, onEdit = { onEdit(screen) })
         }
     }
 }
 
 @Composable
-private fun OwnerScreenCard(screen: OwnerScreen, onSchedule: () -> Unit) {
+private fun OwnerScreenCard(screen: OwnerScreen, onSchedule: () -> Unit, onEdit: () -> Unit) {
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
@@ -192,12 +217,16 @@ private fun OwnerScreenCard(screen: OwnerScreen, onSchedule: () -> Unit) {
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.ScreenShare, null, tint = PrimaryAccent, modifier = Modifier.size(22.dp))
+                Icon(Icons.Default.Tv, null, tint = PrimaryAccent, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(screen.screenName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Spacer(Modifier.weight(1f))
                 Surface(shape = RoundedCornerShape(20.dp), color = PrimaryAccent.copy(alpha = 0.15f)) {
                     Text(screen.screenType, color = PrimaryAccent, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                }
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Edit, null, tint = PrimaryAccent, modifier = Modifier.size(18.dp))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -396,6 +425,101 @@ private fun AddScreenDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
             ) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditScreenDialog(
+    screen: OwnerScreen,
+    onDismiss: () -> Unit,
+    onSave: (String, String, Int, Int, Int) -> Unit
+) {
+    var screenName by remember { mutableStateOf(screen.screenName) }
+    var screenType by remember { mutableStateOf(screen.screenType) }
+    var silverSeats by remember { mutableStateOf(screen.silverSeats.toString()) }
+    var goldSeats by remember { mutableStateOf(screen.goldSeats.toString()) }
+    var platinumSeats by remember { mutableStateOf(screen.platinumSeats.toString()) }
+    var typeExpanded by remember { mutableStateOf(false) }
+    val screenTypes = listOf("2D", "3D", "4DX", "IMAX")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBackground,
+        title = { Text("Edit Screen", color = TextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OwnerTextField(value = screenName, onValueChange = { screenName = it }, label = "Screen Name")
+
+                ExposedDropdownMenuBox(expanded = typeExpanded, onExpandedChange = { typeExpanded = it }) {
+                    OutlinedTextField(
+                        value = screenType, onValueChange = {},
+                        readOnly = true, label = { Text("Screen Type", color = TextSecondary) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(typeExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryAccent, unfocusedBorderColor = DividerColor,
+                            focusedContainerColor = CardBackground, unfocusedContainerColor = CardBackground,
+                            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary
+                        )
+                    )
+                    ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false },
+                        modifier = Modifier.background(CardBackground)) {
+                        screenTypes.forEach { t ->
+                            DropdownMenuItem(text = { Text(t, color = TextPrimary) }, onClick = { screenType = t; typeExpanded = false })
+                        }
+                    }
+                }
+
+                Text("Seat Configuration", color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = silverSeats, onValueChange = { silverSeats = it },
+                        label = { Text("Silver", color = TextSecondary, fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SilverSeat, unfocusedBorderColor = DividerColor,
+                            focusedContainerColor = CardBackground, unfocusedContainerColor = CardBackground,
+                            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary
+                        )
+                    )
+                    OutlinedTextField(
+                        value = goldSeats, onValueChange = { goldSeats = it },
+                        label = { Text("Gold", color = TextSecondary, fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GoldSeat, unfocusedBorderColor = DividerColor,
+                            focusedContainerColor = CardBackground, unfocusedContainerColor = CardBackground,
+                            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary
+                        )
+                    )
+                    OutlinedTextField(
+                        value = platinumSeats, onValueChange = { platinumSeats = it },
+                        label = { Text("Platinum", color = TextSecondary, fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PlatinumSeat, unfocusedBorderColor = DividerColor,
+                            focusedContainerColor = CardBackground, unfocusedContainerColor = CardBackground,
+                            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary
+                        )
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val s = silverSeats.toIntOrNull() ?: 0
+                    val g = goldSeats.toIntOrNull() ?: 0
+                    val p = platinumSeats.toIntOrNull() ?: 0
+                    if (screenName.isNotBlank()) onSave(screenName, screenType, s, g, p)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
+            ) { Text("Save Changes") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }

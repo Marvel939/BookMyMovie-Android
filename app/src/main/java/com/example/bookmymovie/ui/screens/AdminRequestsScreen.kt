@@ -369,7 +369,7 @@ private fun ShowtimeRequestCard(req: ShowtimeRequest, vm: TheatreOwnerViewModel)
             Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                InfoItem(Icons.Default.ScreenShare, req.screenName, Modifier.weight(1f))
+                InfoItem(Icons.Default.Tv, req.screenName, Modifier.weight(1f))
                 InfoItem(Icons.Default.Language, req.language, Modifier.weight(1f))
             }
             Spacer(Modifier.height(6.dp))
