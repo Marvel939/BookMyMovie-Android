@@ -35,7 +35,8 @@ data class NearbyTheatre(
     val photoUrls: List<String> = emptyList(), // up to 4 photos for detail screen
     val placeId: String,
     val lat: Double = 0.0,
-    val lng: Double = 0.0
+    val lng: Double = 0.0,
+    val photoReferences: List<String> = emptyList()
 )
 
 class NearbyTheatresViewModel : ViewModel() {
@@ -76,27 +77,36 @@ class NearbyTheatresViewModel : ViewModel() {
     /** Load previously saved cinemas from root Firebase cinemas collection (offline fallback) */
     private fun loadTheatresFromFirebase() {
         val ref = FirebaseDatabase.getInstance().getReference("cinemas")
-        // keepSynced keeps this node's data available offline
         ref.keepSynced(true)
-        // ValueEventListener reads from local cache immediately when offline
         ref.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (snapshot.exists()) {
                     val cached = snapshot.children.mapNotNull { child ->
                         val name = child.child("name").getValue(String::class.java)
                             ?: return@mapNotNull null
-                        val photoUrls = child.child("photoUrls").children
+                        
+                        val photoReferences = child.child("photoReferences").children
                             .mapNotNull { it.getValue(String::class.java) }
+                        
+                        val freshPhotoUrls = photoReferences.map { ref -> constructPhotoUrl(ref) }
+                        val firstFreshPhotoUrl = freshPhotoUrls.firstOrNull() ?: child.child("photoUrl").getValue(String::class.java)
+
                         NearbyTheatre(
                             name = name,
                             address = child.child("address").getValue(String::class.java) ?: "",
                             rating = child.child("rating").getValue(Double::class.java),
-                            photoUrl = photoUrls.firstOrNull()
-                                ?: child.child("photoUrl").getValue(String::class.java),
-                            photoUrls = photoUrls,
+                            photoUrl = ensureCurrentApiKey(firstFreshPhotoUrl),
+                            photoUrls = if (freshPhotoUrls.isNotEmpty()) {
+                                freshPhotoUrls
+                            } else {
+                                child.child("photoUrls").children.mapNotNull { 
+                                    ensureCurrentApiKey(it.getValue(String::class.java)) 
+                                }
+                            },
                             placeId = child.child("placeId").getValue(String::class.java) ?: "",
                             lat = child.child("lat").getValue(Double::class.java) ?: 0.0,
-                            lng = child.child("lng").getValue(Double::class.java) ?: 0.0
+                            lng = child.child("lng").getValue(Double::class.java) ?: 0.0,
+                            photoReferences = photoReferences
                         )
                     }
                     if (cached.isNotEmpty()) {
@@ -104,9 +114,7 @@ class NearbyTheatresViewModel : ViewModel() {
                     }
                 }
             }
-            override fun onCancelled(error: DatabaseError) {
-                // silently ignore — fresh fetch will follow on connectivity
-            }
+            override fun onCancelled(error: DatabaseError) {}
         })
     }
 
@@ -130,16 +138,16 @@ class NearbyTheatresViewModel : ViewModel() {
                     apiKey = PLACES_API_KEY
                 )
                 val fetched = response.results.map { place ->
-                    val photoUrls = place.photos?.take(4)?.map { photo ->
-                        "https://maps.googleapis.com/maps/api/place/photo" +
-                                "?maxwidth=800&photo_reference=${photo.photoReference}&key=$PLACES_API_KEY"
-                    } ?: emptyList()
+                    val photoReferences = place.photos?.take(4)?.map { it.photoReference } ?: emptyList()
+                    val photoUrls = photoReferences.map { constructPhotoUrl(it) }
+
                     NearbyTheatre(
                         name = place.name,
                         address = place.vicinity ?: "",
                         rating = place.rating,
                         photoUrl = photoUrls.firstOrNull(),
                         photoUrls = photoUrls,
+                        photoReferences = photoReferences,
                         placeId = place.placeId,
                         lat = place.geometry?.location?.lat ?: 0.0,
                         lng = place.geometry?.location?.lng ?: 0.0
@@ -158,18 +166,20 @@ class NearbyTheatresViewModel : ViewModel() {
                                 fields = "photos",
                                 apiKey = PLACES_API_KEY
                             )
-                            val fallbackPhotoUrls = details.result?.photos?.take(4)?.map { photo ->
-                                "https://maps.googleapis.com/maps/api/place/photo" +
-                                        "?maxwidth=800&photo_reference=${photo.photoReference}&key=$PLACES_API_KEY"
-                            } ?: emptyList()
+                            val freshPhotoReferences = details.result?.photos?.take(4)?.map { it.photoReference } ?: emptyList()
+                            val fallbackPhotoUrls = freshPhotoReferences.map { constructPhotoUrl(it) }
 
                             if (fallbackPhotoUrls.isNotEmpty()) {
                                 nearbyTheatres = nearbyTheatres.map { current ->
                                     if (current.placeId == theatre.placeId) {
-                                        current.copy(
+                                        val patched = current.copy(
                                             photoUrl = fallbackPhotoUrls.firstOrNull(),
-                                            photoUrls = fallbackPhotoUrls
+                                            photoUrls = fallbackPhotoUrls,
+                                            photoReferences = freshPhotoReferences
                                         )
+                                        // Persist the patched theatre to Firebase
+                                        saveCinemasToFirebase(listOf(patched))
+                                        patched
                                     } else current
                                 }
                             }
@@ -218,27 +228,19 @@ class NearbyTheatresViewModel : ViewModel() {
         val cinemasRef = db.getReference("cinemas")
         val ownersRef = db.getReference("theatre_owners")
 
-        // Track completion of both queries
         var cinemasResult: List<NearbyTheatre>? = null
         var ownersResult: List<NearbyTheatre>? = null
 
         fun mergeResults() {
-            // Wait until both queries complete
             val c = cinemasResult ?: return
             val o = ownersResult ?: return
-
-            // Merge, deduplicate by placeId (cinema entries take priority)
             val existingPlaceIds = c.map { it.placeId }.toSet()
             val merged = c + o.filter { it.placeId.isBlank() || it.placeId !in existingPlaceIds }
-
             isLoadingTheatres = false
             nearbyTheatres = merged
-            if (merged.isEmpty()) {
-                theatresError = "No cinemas found in $city"
-            }
+            if (merged.isEmpty()) theatresError = "No cinemas found in $city"
         }
 
-        // 1. Fetch from cinemas/ collection (Google Places cache)
         cinemasRef.keepSynced(true)
         cinemasRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -246,18 +248,29 @@ class NearbyTheatresViewModel : ViewModel() {
                     snapshot.children.mapNotNull { child ->
                         val name = child.child("name").getValue(String::class.java)
                             ?: return@mapNotNull null
-                        val photoUrls = child.child("photoUrls").children
+                        
+                        val photoReferences = child.child("photoReferences").children
                             .mapNotNull { it.getValue(String::class.java) }
+
+                        val freshPhotoUrls = photoReferences.map { ref -> constructPhotoUrl(ref) }
+                        val firstFreshPhotoUrl = freshPhotoUrls.firstOrNull() ?: child.child("photoUrl").getValue(String::class.java)
+
                         NearbyTheatre(
                             name = name,
                             address = child.child("address").getValue(String::class.java) ?: "",
                             rating = child.child("rating").getValue(Double::class.java),
-                            photoUrl = photoUrls.firstOrNull()
-                                ?: child.child("photoUrl").getValue(String::class.java),
-                            photoUrls = photoUrls,
+                            photoUrl = ensureCurrentApiKey(firstFreshPhotoUrl),
+                            photoUrls = if (freshPhotoUrls.isNotEmpty()) {
+                                freshPhotoUrls
+                            } else {
+                                child.child("photoUrls").children.mapNotNull { 
+                                    ensureCurrentApiKey(it.getValue(String::class.java)) 
+                                }
+                            },
                             placeId = child.child("placeId").getValue(String::class.java) ?: "",
                             lat = child.child("lat").getValue(Double::class.java) ?: 0.0,
-                            lng = child.child("lng").getValue(Double::class.java) ?: 0.0
+                            lng = child.child("lng").getValue(Double::class.java) ?: 0.0,
+                            photoReferences = photoReferences
                         )
                     }
                 } else emptyList()
@@ -270,7 +283,6 @@ class NearbyTheatresViewModel : ViewModel() {
             }
         })
 
-        // 2. Fetch approved theatre owners registered in this city
         ownersRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val registered = if (snapshot.exists()) {
@@ -282,14 +294,10 @@ class NearbyTheatresViewModel : ViewModel() {
                         val cinemaName = child.child("cinemaName").getValue(String::class.java)
                             ?: return@mapNotNull null
                         NearbyTheatre(
-                            name = cinemaName,
-                            address = ownerCity,
-                            rating = null,
-                            photoUrl = null,
-                            photoUrls = emptyList(),
+                            name = cinemaName, address = ownerCity, rating = null,
+                            photoUrl = null, photoUrls = emptyList(),
                             placeId = child.child("placeId").getValue(String::class.java) ?: "",
-                            lat = 0.0,
-                            lng = 0.0
+                            lat = 0.0, lng = 0.0
                         )
                     }
                 } else emptyList()
@@ -328,6 +336,7 @@ class NearbyTheatresViewModel : ViewModel() {
                     "rating" to theatre.rating,
                     "photoUrl" to theatre.photoUrl,
                     "photoUrls" to photoUrlsMap,
+                    "photoReferences" to theatre.photoReferences,
                     "placeId" to theatre.placeId,
                     "lat" to theatre.lat,
                     "lng" to theatre.lng
@@ -370,6 +379,19 @@ class NearbyTheatresViewModel : ViewModel() {
         ref.child("city").setValue(city)
         ref.child("lat").setValue(lat)
         ref.child("lng").setValue(lng)
+    }
+
+    /** Reconstructs a Google Places photo URL using the CURRENT API key and a photo reference. */
+    private fun constructPhotoUrl(photoReference: String): String {
+        return "https://maps.googleapis.com/maps/api/place/photo" +
+                "?maxwidth=800&photo_reference=$photoReference&key=$PLACES_API_KEY"
+    }
+
+    /** Repairs a Google Maps photo URL by replacing its API key with the current one. */
+    private fun ensureCurrentApiKey(url: String?): String? {
+        if (url == null || !url.contains("maps.googleapis.com")) return url
+        // Regex replaces any existing key parameter with the current one
+        return url.replace(Regex("key=[^&]*"), "key=$PLACES_API_KEY")
     }
 }
 
