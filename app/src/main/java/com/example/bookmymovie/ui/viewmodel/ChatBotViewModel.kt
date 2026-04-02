@@ -8,6 +8,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -47,29 +48,24 @@ data class NavigationRequest(
 
 class ChatBotViewModel : ViewModel() {
 
-    // ── Booking Flow State ────────────────────────────────────────────────────
-    var navigationRequest by mutableStateOf<NavigationRequest?>(null)
-    var isBookingFlowActive by mutableStateOf(false)
-    var bookingStep by mutableStateOf("ASK_THEATRE")
-    var bookingMovieId by mutableStateOf<String?>(null)
-    var bookingMovieName by mutableStateOf<String?>(null)
-    var bookingMoviePoster by mutableStateOf<String?>(null)
-    var bookingTheatreId by mutableStateOf<String?>(null)
-    var bookingCity by mutableStateOf("Mumbai")
-    var availableTheatresForMovie = mutableStateListOf<com.example.bookmymovie.model.Theatre>()
-
     companion object {
         private const val OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
-        private const val MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+        private const val MODEL = "nvidia/nemotron-3-super-120b-a12b:free"  // Auto-routes to available free model
+        private const val TAG = "ChatBotViewModel"
         
         fun getOpenRouterKey(context: Context): String {
             return try {
-                context.assets.open("openrouter.key").bufferedReader().use { it.readText().trim() }
+                val key = context.assets.open("openrouter.key").bufferedReader().use { it.readText().trim() }
+                Log.d(TAG, "API Key loaded successfully: ${key.take(20)}...")
+                key
             } catch (e: Exception) {
-                "" // Fallback if file is missing
+                Log.e(TAG, "Failed to load API key file: ${e.message}", e)
+                ""
             }
         }
     }
+
+    private val TAG = "ChatBotViewModel"
 
     // ── Current session ───────────────────────────────────────────────────────
     var currentSessionId: String = UUID.randomUUID().toString()
@@ -291,6 +287,8 @@ class ChatBotViewModel : ViewModel() {
         if (userText.isBlank()) return
         errorMessage = null
 
+        Log.d(TAG, "===== MESSAGE SENT: $userText =====")
+
         val userMsg = ChatMessage(
             id = UUID.randomUUID().toString(),
             role = "user",
@@ -301,20 +299,21 @@ class ChatBotViewModel : ViewModel() {
         messages.add(userMsg)
         saveMessageToFirebase(userId, userMsg)
 
-        if (isBookingFlowActive) {
-            handleBookingStep(userText, userId, context)
-            return
-        }
-
-        val lowerText = userText.lowercase()
-        if (lowerText.contains("book a ticket") || lowerText.contains("book a movie") || lowerText.contains("book ticket")) {
-            startBookingFlow(userText, userId)
-            return
-        }
-
         isLoading = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                Log.d(TAG, "1. Starting API request...")
+                val apiKey = getOpenRouterKey(context)
+                Log.d(TAG, "2. API Key: ${if(apiKey.isEmpty()) "EMPTY!" else "OK"}")
+                if(apiKey.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        errorMessage = "ERROR: API key not found. Check openrouter.key file in assets folder."
+                        Log.e(TAG, "API key is empty!")
+                        isLoading = false
+                    }
+                    return@launch
+                }
+
                 // Build the message history array (last 20 messages for context)
                 val historyForApi = messages.takeLast(20)
                 val messagesArray = JSONArray()
@@ -345,59 +344,109 @@ class ChatBotViewModel : ViewModel() {
                     put("temperature", 0.7)
                 }
 
+        Log.d(TAG, "Sending request to OpenRouter API with model: $MODEL")
+                
                 val request = Request.Builder()
                     .url(OPENROUTER_BASE_URL)
                     .post(body.toString().toRequestBody("application/json".toMediaType()))
-                    .addHeader("Authorization", "Bearer ${getOpenRouterKey(context)}")
+                    .addHeader("Authorization", "Bearer $apiKey")
                     .addHeader("Content-Type", "application/json")
                     .addHeader("HTTP-Referer", "https://bookmymovie.app")
                     .addHeader("X-Title", "BookMyMovie AI Assistant")
                     .build()
 
-                val response = httpClient.newCall(request).execute()
-                val responseBody = response.body?.string()
+                Log.d(TAG, "3. Making HTTP call...")
+                var response: okhttp3.Response? = null
+                var responseBody: String? = null
+                
+                try {
+                    response = httpClient.newCall(request).execute()
+                    Log.d(TAG, "4. Got response code: ${response.code}")
+                    responseBody = response.body?.string()
+                    Log.d(TAG, "5. Response body length: ${responseBody?.length ?: 0}")
+                    Log.d(TAG, "7. About to process response in withContext")
+                } catch(e: Exception) {
+                    Log.e(TAG, "8. Exception during API call: ${e.message}", e)
+                    withContext(Dispatchers.Main) {
+                        errorMessage = "Network error: ${e.message}"
+                        isLoading = false
+                    }
+                    return@launch
+                }
 
                 withContext(Dispatchers.Main) {
-                    if (response.isSuccessful && responseBody != null) {
-                        try {
-                            val json = JSONObject(responseBody)
-                            val rawText = json
-                                .getJSONArray("choices")
-                                .getJSONObject(0)
-                                .getJSONObject("message")
-                                .getString("content")
-                                .trim()
-
-                            // Strip markdown before storing and displaying
-                            val cleanText = MarkdownUtils.stripMarkdown(rawText)
-
-                            val aiMsg = ChatMessage(
-                                id = UUID.randomUUID().toString(),
-                                role = "model",
-                                text = cleanText,
-                                timestamp = System.currentTimeMillis(),
-                                sessionId = currentSessionId
-                            )
-                            messages.add(aiMsg)
-                            saveMessageToFirebase(userId, aiMsg)
-                            speakText(cleanText)
-                        } catch (parseEx: Exception) {
-                            errorMessage = "Error parsing response: ${parseEx.message}"
+                    Log.d(TAG, "6. Processing response on Main thread")
+                    when {
+                        response?.code == 401 -> {
+                            errorMessage = "Authorization failed. Your API key may be invalid or expired. Please check your openrouter.key file."
+                            Log.e(TAG, "401 Unauthorized - check API key")
                         }
-                    } else {
-                        val errSnippet = responseBody?.take(200) ?: "(empty body)"
-                        errorMessage = "API error ${response.code}: $errSnippet"
+                        response?.code == 404 -> {
+                            errorMessage = "API model not available (404). The AI model is not available on OpenRouter. Please check your model configuration."
+                            Log.e(TAG, "404 Not Found - Model endpoint unavailable")
+                        }
+                        response?.code == 429 -> {
+                            errorMessage = "Rate limit reached. Please try again in a few minutes."
+                            Log.e(TAG, "429 Too Many Requests")
+                        }
+                        response?.code == 500 -> {
+                            errorMessage = "Server error (500). The API service is having issues. Try again later."
+                            Log.e(TAG, "500 Server Error")
+                        }
+                        response?.isSuccessful == true && responseBody != null -> {
+                            try {
+                                Log.d(TAG, "9. Parsing JSON response...")
+                                val json = JSONObject(responseBody)
+                                Log.d(TAG, "10. Got JSONObject")
+                                val rawText = json
+                                    .getJSONArray("choices")
+                                    .getJSONObject(0)
+                                    .getJSONObject("message")
+                                    .getString("content")
+                                    .trim()
+
+                                Log.d(TAG, "Successfully parsed AI response")
+
+                                // Strip markdown before storing and displaying
+                                val cleanText = MarkdownUtils.stripMarkdown(rawText)
+
+                                val aiMsg = ChatMessage(
+                                    id = UUID.randomUUID().toString(),
+                                    role = "model",
+                                    text = cleanText,
+                                    timestamp = System.currentTimeMillis(),
+                                    sessionId = currentSessionId
+                                )
+                                messages.add(aiMsg)
+                                Log.d(TAG, "14. Message added to list and saved to Firebase")
+                                saveMessageToFirebase(userId, aiMsg)
+                                speakText(cleanText)
+                            } catch (parseEx: Exception) {
+                                errorMessage = "Failed to parse API response: ${parseEx.message}"
+                                Log.e(TAG, "Error parsing response", parseEx)
+                            }
+                        }
+                        else -> {
+                            Log.d(TAG, "11. Response code was: ${response?.code}")
+                            Log.d(TAG, "12. Is successful: ${response?.isSuccessful}")
+                            Log.d(TAG, "13. Response body null: ${responseBody == null}")
+                            val errSnippet = responseBody?.take(300) ?: "(empty response)"
+                            errorMessage = "API Error ${response?.code}: $errSnippet"
+                            Log.e(TAG, "API call failed with code ${response?.code}: $errSnippet")
+                        }
                     }
                     isLoading = false
                 }
             } catch (e: IOException) {
                 withContext(Dispatchers.Main) {
-                    errorMessage = "Network error. Check your connection."
+                    errorMessage = "Network error: ${e.message}. Check your internet connection."
+                    Log.e(TAG, "Network error", e)
                     isLoading = false
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    errorMessage = "Something went wrong: ${e.message}"
+                    errorMessage = "Error: ${e.message}"
+                    Log.e(TAG, "Unexpected error", e)
                     isLoading = false
                 }
             }
@@ -417,198 +466,7 @@ class ChatBotViewModel : ViewModel() {
         speakText(text)
     }
 
-    private fun startBookingFlow(userText: String, userId: String) {
-        isLoading = true
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val lowerStr = userText.lowercase()
-                var searchQuery = userText
-                
-                // Extract movie name
-                val phrases = listOf("book a ticket for the ", "book a ticket for ", "book a movie ticket for the ", "book a movie ticket for ", "book ticket for ", "book ")
-                for (phrase in phrases) {
-                    if (lowerStr.contains(phrase)) {
-                        val startIndex = lowerStr.indexOf(phrase) + phrase.length
-                        searchQuery = userText.substring(startIndex).trim().removeSurrounding("\"").removeSurrounding("'")
-                        break
-                    }
-                }
-                
-                val tmdbMovies = try {
-                    com.example.bookmymovie.data.repository.MovieRepository.searchMovies(searchQuery)
-                } catch(e: Exception) {
-                    emptyList()
-                }
 
-                if (tmdbMovies.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        addSystemMessage("I couldn't find a matching movie for your request. Please specify the exact movie name.", userId)
-                        isLoading = false
-                    }
-                    return@launch
-                }
-                
-                // Fetch city
-                val prefs = UserRepository.getUserPreferences()
-                val city = prefs.lastCity.ifBlank { "Mumbai" }
-                
-                // Fetch all theatres
-                val theatres = FirebaseMovieRepository.getTheatresInCity(city)
-                
-                val matchedTmdbMovie = tmdbMovies.first()
-                val showingTheatres = if (theatres.isNotEmpty()) {
-                    theatres.toMutableList()
-                } else {
-                    mutableListOf(com.example.bookmymovie.model.Theatre(theatreId = "dummy_1", name = "Connplex Cinemas", city = city))
-                }
-                
-                withContext(Dispatchers.Main) {
-                    bookingMovieId = matchedTmdbMovie.id.toString()
-                    bookingMovieName = matchedTmdbMovie.title
-                    bookingMoviePoster = matchedTmdbMovie.posterUrl // Use poster for the UI!
-                    bookingCity = city
-                    availableTheatresForMovie.clear()
-                    availableTheatresForMovie.addAll(showingTheatres)
-                    isBookingFlowActive = true
-                    bookingStep = "ASK_THEATRE"
-                    
-                    val theatreNames = showingTheatres.take(3).mapIndexed { i, t -> "${i+1}. ${t.name}" }.joinToString(", ")
-                    addSystemMessage("Showtimes are available for ${matchedTmdbMovie.title}! This movie is available at: $theatreNames. Which theatre would you like to book?", userId)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    addSystemMessage("Error checking availability: ${e.message}", userId)
-                }
-            } finally {
-                withContext(Dispatchers.Main) {
-                    isLoading = false
-                }
-            }
-        }
-    }
-
-    private fun handleBookingStep(userText: String, userId: String, context: Context) {
-        isLoading = true
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                if (bookingStep == "ASK_THEATRE") {
-                    val lowerStr = userText.lowercase()
-                    val matchedTheatre = availableTheatresForMovie.find { lowerStr.contains(it.name.lowercase()) }
-                        ?: availableTheatresForMovie.getOrNull(userText.trim().toIntOrNull()?.minus(1) ?: -1)
-                        
-                    withContext(Dispatchers.Main) {
-                        if (matchedTheatre != null) {
-                            bookingTheatreId = matchedTheatre.theatreId
-                            bookingStep = "ASK_DATE"
-                            addSystemMessage("Great, you selected ${matchedTheatre.name}. For which date to book the movie ticket for? (e.g. YYYY-MM-DD or Today)", userId)
-                        } else {
-                            addSystemMessage("I couldn't recognize that theatre. Please reply with the name or number of the theatre.", userId)
-                        }
-                        isLoading = false
-                    }
-                    return@launch
-                }
-
-                var dateStr = userText.trim()
-                if (dateStr.lowercase().contains("today")) {
-                    dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-                } else if (dateStr.lowercase().contains("tomorrow")) {
-                    val cal = java.util.Calendar.getInstance()
-                    cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
-                    dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(cal.time)
-                } else {
-                    // Simple parsing or fallback. Let's assume standard input format for test robustness.
-                }
-                
-                val tId = bookingTheatreId ?: return@launch
-                var foundPlaceId: String? = null
-                var foundCinemaShowtime: CinemaShowtime? = null
-                val dbRef = FirebaseDatabase.getInstance().getReference("showtimes")
-                
-                // Fetch all movies to help with title matching if needed
-                val allMovies = FirebaseMovieRepository.getAllMovies()
-                
-                // Path is showtimes/{city}/{theatreId}
-                val snapshot = dbRef.child(bookingCity).child(tId).get().await()
-                val availableDates = mutableSetOf<String>()
-                
-                for (movieSnap in snapshot.children) {
-                    val stMovieId = movieSnap.key ?: continue
-                    val showtime = movieSnap.getValue(com.example.bookmymovie.model.Showtime::class.java) ?: continue
-                    val stDate = showtime.date
-                    
-                    // Match by ID or Name
-                    val bNameLower = bookingMovieName?.lowercase() ?: ""
-                    val localMovie = allMovies.find { it.movieId == stMovieId }
-                    val dbNameLower = localMovie?.title?.lowercase() ?: ""
-                    
-                    val isIdMatch = stMovieId == bookingMovieId
-                    val isNameMatch = bNameLower.isNotEmpty() && dbNameLower.isNotEmpty() && (
-                        bNameLower == dbNameLower || bNameLower.contains(dbNameLower) || dbNameLower.contains(bNameLower)
-                    )
-                    
-                    if (isIdMatch || isNameMatch) {
-                        availableDates.add(stDate)
-                        
-                        // If we find an exact match for the requested date and we haven't locked one in yet
-                        if (stDate == dateStr && foundCinemaShowtime == null) {
-                            val formatPrices = mapOf(showtime.format.ifEmpty { "2D" } to mapOf("silver" to showtime.price.toInt(), "gold" to (showtime.price + 50).toInt(), "platinum" to (showtime.price + 150).toInt()))
-                            
-                            foundPlaceId = tId
-                            foundCinemaShowtime = CinemaShowtime(
-                                showtimeId = movieSnap.key ?: java.util.UUID.randomUUID().toString(),
-                                screenId = "screen_${showtime.screenNumber}",
-                                screenName = "Screen ${showtime.screenNumber}",
-                                screenType = showtime.format.ifEmpty { "2D" },
-                                movieId = stMovieId,
-                                movieName = bookingMovieName ?: localMovie?.title ?: "",
-                                moviePoster = bookingMoviePoster ?: localMovie?.posterUrl ?: "",
-                                date = stDate,
-                                time = showtime.times.firstOrNull() ?: "01:00 PM",
-                                language = "English",
-                                formats = showtime.format.ifEmpty { "2D" },
-                                formatPrices = formatPrices
-                            )
-                        }
-                    }
-                }
-                
-                withContext(Dispatchers.Main) {
-                    if (foundCinemaShowtime != null && foundPlaceId != null) {
-                        addSystemMessage("Great! Navigating you to the seat map.", userId)
-                        navigationRequest = NavigationRequest(
-                            route = "seat_selection", 
-                            placeId = foundPlaceId, 
-                            showtime = foundCinemaShowtime
-                        )
-                        isBookingFlowActive = false
-                    } else {
-                        if (availableDates.isNotEmpty()) {
-                            val datesStr = availableDates.sorted().joinToString(", ")
-                            addSystemMessage("Sorry, no showtimes were found for $dateStr. However, showtimes are available on these dates: $datesStr. Would you like to book the ticket for one of these dates?", userId)
-                        } else {
-                            addSystemMessage("Sorry, no showtimes were found at the selected theatre. Try another theatre or say 'cancel'.", userId)
-                            isBookingFlowActive = false
-                        }
-                        
-                        if (userText.lowercase() == "cancel" || userText.lowercase() == "no") {
-                            isBookingFlowActive = false
-                            addSystemMessage("Booking cancelled.", userId)
-                        }
-                    }
-                }
-            } catch(e: Exception) {
-                withContext(Dispatchers.Main) {
-                    addSystemMessage("Error finding showtimes: ${e.message}", userId)
-                    isBookingFlowActive = false
-                }
-            } finally {
-                withContext(Dispatchers.Main) {
-                    isLoading = false
-                }
-            }
-        }
-    }
 
     override fun onCleared() {
         super.onCleared()

@@ -37,7 +37,6 @@ import com.example.bookmymovie.model.ChatMessage
 import com.example.bookmymovie.navigation.Screen
 import com.example.bookmymovie.ui.theme.*
 import com.example.bookmymovie.ui.viewmodel.ChatBotViewModel
-import com.example.bookmymovie.ui.viewmodel.BookingViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
@@ -48,7 +47,6 @@ fun AiChatScreen(
 ) {
     // Activity-scoped ViewModel so session persists across navigation
     val chatBotViewModel: ChatBotViewModel = viewModel(LocalContext.current as MainActivity)
-    val bookingViewModel: BookingViewModel = viewModel(LocalContext.current as MainActivity)
     val context = LocalContext.current
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
@@ -65,20 +63,6 @@ fun AiChatScreen(
             chatBotViewModel.startListening(context) { recognized -> 
                 chatBotViewModel.sendMessage(recognized, userId, context)
             }
-        }
-    }
-
-    LaunchedEffect(chatBotViewModel.navigationRequest) {
-        val req = chatBotViewModel.navigationRequest
-        if (req != null) {
-            if (req.route == "seat_selection" && req.showtime != null) {
-                bookingViewModel.currentPlaceId = req.placeId
-                bookingViewModel.selectedShowtime = req.showtime
-                bookingViewModel.selectedFormat = req.showtime.formats.split(",").firstOrNull()?.trim() ?: "2D"
-                bookingViewModel.selectedLanguage = req.showtime.language.split(",").firstOrNull()?.trim() ?: "English"
-                navController.navigate(Screen.SeatSelection.route)
-            }
-            chatBotViewModel.navigationRequest = null
         }
     }
 
