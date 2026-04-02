@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
 //   2. Enable "Places API", "Geocoding API" and "Maps Static API"
 //   3. Create an API key and paste it below
 // ---------------------------------------------------------------------------
-const val PLACES_API_KEY = "AIzaSyBiElVGO0SCnOBUfXs_aAlmlKph1MKnuKc"
+const val PLACES_API_KEY = "AIzaSyBW-jsly7kS7dULtl9luHOK7dVo3XB-V6k"
 
 data class NearbyTheatre(
     val name: String,
@@ -132,7 +132,7 @@ class NearbyTheatresViewModel : ViewModel() {
                 val fetched = response.results.map { place ->
                     val photoUrls = place.photos?.take(4)?.map { photo ->
                         "https://maps.googleapis.com/maps/api/place/photo" +
-                                "?maxwidth=800&photoreference=${photo.photoReference}&key=$PLACES_API_KEY"
+                                "?maxwidth=800&photo_reference=${photo.photoReference}&key=$PLACES_API_KEY"
                     } ?: emptyList()
                     NearbyTheatre(
                         name = place.name,
@@ -147,6 +147,38 @@ class NearbyTheatresViewModel : ViewModel() {
                 }
                 nearbyTheatres = fetched
                 theatresLoaded = true
+
+                // Fallback: Nearby Search may omit photos for some places.
+                // Fetch missing photo references from Place Details and patch list items.
+                fetched.filter { it.photoUrl.isNullOrEmpty() && it.placeId.isNotBlank() }.forEach { theatre ->
+                    viewModelScope.launch {
+                        try {
+                            val details = PlacesRetrofitClient.api.getPlaceDetails(
+                                placeId = theatre.placeId,
+                                fields = "photos",
+                                apiKey = PLACES_API_KEY
+                            )
+                            val fallbackPhotoUrls = details.result?.photos?.take(4)?.map { photo ->
+                                "https://maps.googleapis.com/maps/api/place/photo" +
+                                        "?maxwidth=800&photo_reference=${photo.photoReference}&key=$PLACES_API_KEY"
+                            } ?: emptyList()
+
+                            if (fallbackPhotoUrls.isNotEmpty()) {
+                                nearbyTheatres = nearbyTheatres.map { current ->
+                                    if (current.placeId == theatre.placeId) {
+                                        current.copy(
+                                            photoUrl = fallbackPhotoUrls.firstOrNull(),
+                                            photoUrls = fallbackPhotoUrls
+                                        )
+                                    } else current
+                                }
+                            }
+                        } catch (_: Exception) {
+                            // keep placeholder when no valid photo is available
+                        }
+                    }
+                }
+
                 // Save to Firebase (adds new, updates existing)
                 saveCinemasToFirebase(fetched)
             } catch (e: Exception) {

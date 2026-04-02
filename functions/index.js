@@ -145,9 +145,54 @@ exports.requestBookingRefund = onCall(async (request) => {
 
   const showTs = parseShowTimestamp(booking.date, booking.time);
   if (!showTs) throw new Error("Invalid booking show date/time");
-  const minWindowMs = 2 * 60 * 60 * 1000; // 2 hours
-  if (showTs - Date.now() < minWindowMs) {
-    throw new Error("Refund is allowed only up to 2 hours before showtime");
+  
+  const now = Date.now();
+  const timeUntilShow = showTs - now;
+  const oneDay = 24 * 60 * 60 * 1000; // 86400000 ms
+  const threeHours = 3 * 60 * 60 * 1000; // 10800000 ms
+  const twoHours = 2 * 60 * 60 * 1000; // 7200000 ms
+  const oneHour = 1 * 60 * 60 * 1000; // 3600000 ms
+  
+  // Calculate refund percentage based on time before show
+  let refundPercentage = 0;
+  let refundReason = "";
+  
+  if (timeUntilShow >= oneDay) {
+    // >=1 day before show: 100% refund
+    refundPercentage = 100;
+    refundReason = "100% refund - more than 1 day before show";
+  } else if (timeUntilShow >= threeHours) {
+    // 3-24 hours before show: 75% refund
+    refundPercentage = 75;
+    refundReason = "75% refund - 3-24 hours before show";
+  } else if (timeUntilShow >= twoHours) {
+    // 2-3 hours before show: 50% refund
+    refundPercentage = 50;
+    refundReason = "50% refund - 2-3 hours before show";
+  } else if (timeUntilShow >= oneHour) {
+    // 1-2 hours before show: 0% refund
+    refundPercentage = 0;
+    throw new HttpsError("failed-precondition", "Refund not allowed - less than 2 hours before showtime");
+  } else {
+    // <1 hour before show: 0% refund
+    refundPercentage = 0;
+    throw new HttpsError("failed-precondition", "Refund not allowed - less than 1 hour before showtime");
+  }
+  
+  // Check if this is a duplicate refund attempt for the same movie
+  const userBookingsSnap = await admin.database().ref(`bookings/${uid}`).get();
+  const userBookings = userBookingsSnap.val() || {};
+  const movieName = booking.movieName || "";
+  
+  // Check if any other booking for the same movie has already been refunded
+  const duplicateRefund = Object.entries(userBookings).some(([bId, bData]) => {
+    return bId !== bookingId && 
+           (bData.movieName || "").trim() === movieName.trim() && 
+           (bData.refundStatus === "succeeded");
+  });
+  
+  if (duplicateRefund) {
+    throw new HttpsError("already-exists", "You have already received a refund for this movie. Only one refund per movie is allowed.");
   }
 
   const seatAmount = Number(booking.seatAmount || 0);
@@ -156,8 +201,9 @@ exports.requestBookingRefund = onCall(async (request) => {
   const convenienceFeeAmount = Number(booking.convenienceFeeAmount || 0);
   const convenienceFeeGstAmount = Number(booking.convenienceFeeGstAmount || 0);
 
+  // Calculate refund based on percentage of (seat + food amount) only - exclude taxes and fees
   const refundableBaseAmount = seatAmount + foodAmount;
-  const refundableAmount = Math.round(refundableBaseAmount * 0.5);
+  const refundableAmount = Math.round((refundableBaseAmount * refundPercentage) / 100);
   const nonRefundableAmount =
     ticketGstAmount +
     convenienceFeeAmount +
@@ -195,12 +241,12 @@ exports.requestBookingRefund = onCall(async (request) => {
     refundId = `WALLET_REFUND_${bookingId}_${Date.now()}`;
   }
 
-  const now = Date.now();
   const updates = {
     status: "cancelled",
     paymentStatus: "partially_refunded",
     refundStatus: "succeeded",
-    refundReason: "GST and convenience fee are non-refundable",
+    refundReason: refundReason,
+    refundPercentage: refundPercentage,
     refundId,
     refundedAt: now,
     refundableAmount,
@@ -282,8 +328,10 @@ exports.requestBookingRefund = onCall(async (request) => {
             <p>Your refund has been processed and credited to your wallet.</p>
             <p><b>Movie:</b> ${booking.movieName || ""}</p>
             <p><b>Booking ID:</b> ${bookingId}</p>
+            <p><b>Refund Percentage:</b> ${refundPercentage}%</p>
             <p><b>Refunded Amount:</b> ₹${refundableAmount}</p>
             <p><b>Non-refundable:</b> ₹${nonRefundableAmount} (GST + convenience fee)</p>
+            <p style="font-size:12px;color:#999;"><i>${refundReason}</i></p>
           </div>
         `,
       });
@@ -300,6 +348,7 @@ exports.requestBookingRefund = onCall(async (request) => {
         `✅ Refund Successful\n\n` +
         `Movie: ${booking.movieName || ""}\n` +
         `Booking ID: ${bookingId}\n` +
+        `Refund Percentage: ${refundPercentage}%\n` +
         `Refunded Amount: ₹${refundableAmount}\n` +
         `Non-refundable: ₹${nonRefundableAmount} (GST + convenience fee)\n\n` +
         `Amount has been credited to your wallet.`;

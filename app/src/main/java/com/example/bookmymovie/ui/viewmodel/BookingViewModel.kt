@@ -966,4 +966,53 @@ class BookingViewModel : ViewModel() {
             SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(d!!)
         } catch (e: Exception) { date }
     }
+
+    // ── Calculate refund percentage based on time before show ────────────────
+    fun calculateRefundPercentage(bookingDate: String, bookingTime: String): Int {
+        return try {
+            // Parse booking date and time
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val timeFormat = SimpleDateFormat("hh:mm a", Locale.ENGLISH)
+            
+            val date = dateFormat.parse(bookingDate) ?: return 0
+            val time = timeFormat.parse(bookingTime) ?: return 0
+            
+            val calendar = Calendar.getInstance()
+            calendar.time = date
+            
+            val timeCalendar = Calendar.getInstance()
+            timeCalendar.time = time
+            
+            calendar.set(Calendar.HOUR_OF_DAY, timeCalendar.get(Calendar.HOUR_OF_DAY))
+            calendar.set(Calendar.MINUTE, timeCalendar.get(Calendar.MINUTE))
+            calendar.set(Calendar.SECOND, 0)
+            
+            val showTimestamp = calendar.timeInMillis
+            val now = System.currentTimeMillis()
+            val timeUntilShow = showTimestamp - now
+            
+            val oneDay = 24 * 60 * 60 * 1000L // 86400000 ms
+            val threeHours = 3 * 60 * 60 * 1000L // 10800000 ms
+            val twoHours = 2 * 60 * 60 * 1000L // 7200000 ms
+            
+            when {
+                timeUntilShow >= oneDay -> 100  // >=1 day: 100%
+                timeUntilShow >= threeHours -> 75  // 3-24 hours: 75%
+                timeUntilShow >= twoHours -> 50  // 2-3 hours: 50%
+                else -> 0  // <2 hours: 0%
+            }
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    // ── Get refund reason based on percentage ────────────────────────────────
+    fun getRefundReason(percentage: Int): String {
+        return when (percentage) {
+            100 -> "100% refund - more than 1 day before show"
+            75 -> "75% refund - 3-24 hours before show"
+            50 -> "50% refund - 2-3 hours before show"
+            else -> "No refund - less than 2 hours before show"
+        }
+    }
 }

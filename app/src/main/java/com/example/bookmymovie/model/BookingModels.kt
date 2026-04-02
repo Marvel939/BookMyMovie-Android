@@ -83,5 +83,6 @@ data class Booking(
     val refundReason: String = "",
     val refundId: String = "",
     val refundedAt: Long = 0L,
+    val refundPercentage: Int = 0, // Percentage of refund (100, 75, 50, 0)
     val bookedAt: Long = 0L
 )

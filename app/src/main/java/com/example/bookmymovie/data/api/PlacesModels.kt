@@ -39,6 +39,7 @@ data class PlaceDetailsResponse(
 )
 
 data class PlaceDetailResult(
+    val photos: List<PlacePhoto>?,
     val reviews: List<PlaceReview>?
 )
 

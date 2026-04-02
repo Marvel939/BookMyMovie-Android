@@ -79,6 +79,15 @@ private fun BookingHistoryCard(
 ) {
     val context = LocalContext.current
     var showRefundDialog by remember { mutableStateOf(false) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
+    // Calculate refund percentage dynamically
+    val refundPercentage = bookingViewModel.calculateRefundPercentage(booking.date, booking.time)
+    val refundReason = bookingViewModel.getRefundReason(refundPercentage)
+    val baseRefundableAmount = booking.seatAmount + booking.foodAmount
+    val calculatedRefundAmount = (baseRefundableAmount * refundPercentage) / 100
+    val nonRefundableAmount = booking.ticketGstAmount + booking.convenienceFeeAmount + booking.convenienceFeeGstAmount + (baseRefundableAmount - calculatedRefundAmount)
 
     if (showRefundDialog) {
         AlertDialog(
@@ -88,9 +97,18 @@ private fun BookingHistoryCard(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Amount Paid: ₹${booking.totalAmount}", color = TextPrimary, fontSize = 13.sp)
-                    Text("Refundable (Seats + Food): ₹${booking.refundableAmount}", color = TextPrimary, fontSize = 13.sp)
-                    Text("Non-refundable (GST + Convenience): ₹${booking.nonRefundableAmount}", color = TextSecondary, fontSize = 12.sp)
                     Spacer(Modifier.height(4.dp))
+                    Text("Refund Percentage: ${refundPercentage}%", color = PrimaryAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("Refundable (Seats + Food): ₹${calculatedRefundAmount}", color = TextPrimary, fontSize = 13.sp)
+                    Text("Non-refundable (GST + Fees): ₹${nonRefundableAmount}", color = TextSecondary, fontSize = 12.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(refundReason, color = TextSecondary, fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Note: Only seats and food amounts are refundable. Taxes and convenience fees are non-refundable.", color = TextSecondary, fontSize = 11.sp)
+                    Spacer(Modifier.height(4.dp))
+                    if (refundPercentage == 0) {
+                        Text("⚠ Less than 2 hours before show - No refund will be issued", color = PrimaryAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                     Text("Proceed with refund request?", color = TextSecondary, fontSize = 12.sp)
                 }
             },
@@ -99,7 +117,19 @@ private fun BookingHistoryCard(
                     onClick = {
                         bookingViewModel.requestRefund(booking.bookingId) { ok, msg ->
                             showRefundDialog = false
-                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            if (!ok) {
+                                // Check if it's a duplicate refund error
+                                if (msg.contains("already received", ignoreCase = true) || 
+                                    msg.contains("one refund", ignoreCase = true) ||
+                                    msg.contains("refund for this movie", ignoreCase = true)) {
+                                    errorMessage = "You have already received a refund for this movie. Only one refund per movie is allowed."
+                                    showErrorDialog = true
+                                } else {
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                }
+                            } else {
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
                         }
                     },
                     enabled = !bookingViewModel.isRefunding,
@@ -115,6 +145,26 @@ private fun BookingHistoryCard(
             dismissButton = {
                 TextButton(onClick = { showRefundDialog = false }) {
                     Text("Cancel", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    // Error dialog for duplicate refunds
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            containerColor = CardBackground,
+            title = { Text("Refund Not Allowed", color = PrimaryAccent, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(errorMessage, color = TextPrimary, fontSize = 13.sp)
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showErrorDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent)
+                ) {
+                    Text("OK")
                 }
             }
         )
@@ -180,6 +230,9 @@ private fun BookingHistoryCard(
                     ) {
                         Text("Request Refund", color = PrimaryAccent, fontWeight = FontWeight.SemiBold)
                     }
+                } else if (booking.refundStatus == "succeeded") {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Refunded: ₹${booking.refundableAmount}", color = androidx.compose.ui.graphics.Color(0xFF2ECC71), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
             }
         }

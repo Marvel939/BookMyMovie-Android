@@ -10,6 +10,7 @@ interface PlacesApi {
         @Query("location") location: String,
         @Query("radius") radius: Int,
         @Query("type") type: String,
+        @Query("fields") fields: String = "formatted_address,geometry,icon,icon_mask_base_uri,icon_background_color,name,opening_hours,photos,place_id,plus_code,types,rating,user_ratings_total",
         @Query("key") apiKey: String
     ): PlacesNearbyResponse
 
