@@ -12,5 +12,8 @@ data class User(
     val dob: String = "",
     val city: String = "",
     val profileImageUrl: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val status: String = "active", // active | blocked
+    val isDeleted: Boolean = false, // soft delete flag
+    val permissions: String = "standard" // standard | premium | admin
 )

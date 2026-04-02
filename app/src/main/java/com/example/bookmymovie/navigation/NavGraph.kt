@@ -198,6 +198,9 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.TheatreOwnerScheduledMovies.route) {
             TheatreOwnerScheduledMoviesScreen(navController)
         }
+        composable(Screen.AdminUserManagement.route) {
+            AdminUserManagementScreen(navController)
+        }
     }
 }
 

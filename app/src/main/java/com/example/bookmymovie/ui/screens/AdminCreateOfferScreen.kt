@@ -335,7 +335,7 @@ fun AdminCreateOfferScreen(
                         approvalStatus = OfferApprovalStatus.APPROVED.name,
                         isActive = true
                     )
-                    viewModel.createPlatformOffer(offer)
+                    viewModel.createPlatformOffer(context, offer)
                 },
                 modifier = Modifier
                     .fillMaxWidth()

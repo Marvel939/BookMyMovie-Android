@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit
  * • If a matching user record is found  → copy it under the new phone-auth UID so
  *   ProfileScreen (which reads /users/<uid>) displays the data correctly.
  * • If no match → sign out and inform the user that the number is not registered.
+ * • Check if user is blocked or deleted before allowing login.
  */
 private fun checkPhoneInDatabaseAndProceed(
     enteredPhone: String,
@@ -66,11 +67,27 @@ private fun checkPhoneInDatabaseAndProceed(
         }
 
         if (foundUser != null) {
-            // Copy the existing user record under the phone-auth UID
-            val updatedUser = foundUser.copy(userId = newUid)
-            usersRef.child(newUid).setValue(updatedUser).addOnCompleteListener {
-                navController.navigate(Screen.Home.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
+            // Check if user is blocked or deleted
+            val userStatus = snapshot.child(foundUser.userId).child("status").value as? String ?: "active"
+            val isDeleted = snapshot.child(foundUser.userId).child("isDeleted").value as? Boolean ?: false
+
+            if (isDeleted) {
+                auth.currentUser?.delete()
+                auth.signOut()
+                Toast.makeText(context, "Your account has been deleted.", Toast.LENGTH_SHORT).show()
+                onNotRegistered()
+            } else if (userStatus == "blocked") {
+                auth.currentUser?.delete()
+                auth.signOut()
+                Toast.makeText(context, "Your account has been blocked. Please contact support.", Toast.LENGTH_SHORT).show()
+                onNotRegistered()
+            } else {
+                // Copy the existing user record under the phone-auth UID
+                val updatedUser = foundUser.copy(userId = newUid)
+                usersRef.child(newUid).setValue(updatedUser).addOnCompleteListener {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
                 }
             }
         } else {

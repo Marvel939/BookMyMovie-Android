@@ -115,7 +115,7 @@ private fun BookingHistoryCard(
             confirmButton = {
                 Button(
                     onClick = {
-                        bookingViewModel.requestRefund(booking.bookingId) { ok, msg ->
+                        bookingViewModel.requestRefund(context, booking.bookingId) { ok, msg ->
                             showRefundDialog = false
                             if (!ok) {
                                 // Check if it's a duplicate refund error

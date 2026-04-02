@@ -1,11 +1,13 @@
 package com.example.bookmymovie.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bookmymovie.data.repository.MovieRepository
 import com.example.bookmymovie.model.Offer
 import com.example.bookmymovie.model.OfferCategory
 import com.example.bookmymovie.ui.screens.Movie
+import com.example.bookmymovie.utils.NotificationHelper
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,7 +69,7 @@ class AdminCreateOfferViewModel : ViewModel() {
 
     fun resetSuccess() { _creationSuccess.value = false }
 
-    fun createPlatformOffer(offer: Offer) {
+    fun createPlatformOffer(context: Context, offer: Offer) {
         _isLoading.value = true
         val offerId = database.child("offers").push().key ?: return
         val finalOffer = offer.copy(id = offerId)
@@ -76,6 +78,14 @@ class AdminCreateOfferViewModel : ViewModel() {
             .addOnSuccessListener {
                 _isLoading.value = false
                 _creationSuccess.value = true
+                
+                // Create notification for all users about the new offer
+                val notificationHelper = NotificationHelper(context)
+                notificationHelper.addOfferNotification(
+                    offerTitle = offer.title,
+                    offerDescription = offer.description,
+                    offerId = offerId
+                )
             }
             .addOnFailureListener {
                 _isLoading.value = false

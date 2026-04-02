@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +40,7 @@ fun BookingSummaryScreen(
     bookingViewModel: BookingViewModel,
     offersViewModel: OffersViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val appliedCoupon by offersViewModel.appliedCoupon.collectAsState()
     val discountAmount by offersViewModel.discountAmount.collectAsState()
     val cashbackAmount by offersViewModel.cashbackAmount.collectAsState()
@@ -66,6 +68,7 @@ fun BookingSummaryScreen(
                 paymentSheetError = null
                  showtime?.let {
                     bookingViewModel.confirmBooking(
+                        context = context,
                         movieId = it.movieId,
                         movieName = it.movieName,
                         moviePoster = it.moviePoster,
@@ -216,6 +219,7 @@ fun BookingSummaryScreen(
                                             amount = finalAmount,
                                             onSuccess = { walletTxId ->
                                                 bookingViewModel.confirmBooking(
+                                                    context = context,
                                                     movieId = it.movieId,
                                                     movieName = it.movieName,
                                                     moviePoster = it.moviePoster,

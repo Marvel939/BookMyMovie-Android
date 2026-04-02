@@ -40,6 +40,7 @@ import com.example.bookmymovie.ui.viewmodel.MovieViewModel
 import com.example.bookmymovie.ui.viewmodel.NearbyTheatresViewModel
 import com.example.bookmymovie.ui.viewmodel.StreamingViewModel
 import com.example.bookmymovie.ui.viewmodel.OffersViewModel
+import com.example.bookmymovie.ui.viewmodel.NotificationsViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -54,19 +55,26 @@ fun HomeScreen(
     navController: NavController,
     movieViewModel: MovieViewModel = viewModel(),
     streamingViewModel: StreamingViewModel = viewModel(),
-    offersViewModel: OffersViewModel = viewModel()
+    offersViewModel: OffersViewModel = viewModel(),
+    notificationsViewModel: NotificationsViewModel = viewModel()
 ) {
     val nearbyTheatresViewModel: NearbyTheatresViewModel =
         viewModel(LocalContext.current as MainActivity)
+    val unreadCount by notificationsViewModel.unreadCount.collectAsState()
+    
     var selectedItem by remember { mutableIntStateOf(0) }
     val items = listOf("Home", "Stream", "Offers", "Profile")
     val icons = listOf(Icons.Default.Home, Icons.Default.LiveTv, Icons.Default.LocalOffer, Icons.Default.Person)
+
+    LaunchedEffect(Unit) {
+        notificationsViewModel.loadNotifications()
+    }
 
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid ?: ""
     val database = FirebaseDatabase.getInstance().getReference("users").child(userId)
 
-    var userCity by remember { mutableStateOf("Loading...") }
+    var userCity by remember { mutableStateOf("Ahmedabad") }
     var isMenuExpanded by remember { mutableStateOf(false) }
     val cities = listOf("Mumbai", "Delhi", "Bangalore", "Hyderabad", "Ahmedabad", "Chennai", "Kolkata", "Pune")
 
@@ -74,11 +82,15 @@ fun HomeScreen(
         database.child("city").addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val city = snapshot.getValue(String::class.java)
-                if (city != null) {
-                    userCity = city
+                userCity = if (!city.isNullOrBlank()) {
+                    city
+                } else {
+                    "Ahmedabad"
                 }
             }
-            override fun onCancelled(error: DatabaseError) {}
+            override fun onCancelled(error: DatabaseError) {
+                userCity = "Ahmedabad"
+            }
         })
     }
 
@@ -139,15 +151,25 @@ fun HomeScreen(
                                 tint = TextPrimary
                             )
                         }
-                        // Red notification badge
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 10.dp, end = 10.dp)
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(PrimaryAccent)
-                        )
+                        // Red notification badge - only show if there are unread notifications
+                        if (unreadCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 10.dp, end = 10.dp)
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(PrimaryAccent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadCount > 9) "9+" else unreadCount.toString(),
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

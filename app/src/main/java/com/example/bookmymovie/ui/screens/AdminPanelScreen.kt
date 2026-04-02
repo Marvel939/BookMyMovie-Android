@@ -88,7 +88,7 @@ fun AdminPanelScreen(
 
         val ownerVm: TheatreOwnerViewModel = viewModel()
         val offerVm: OfferAdminViewModel = viewModel()
-        val tabs = listOf("Analytics", "Screens", "Showtimes", "Food", "Requests", "Stream", "Offers", "Offer Hist")
+        val tabs = listOf("Analytics", "Screens", "Showtimes", "Food", "Requests", "Stream", "Offers", "Offer Hist", "Users")
         var selectedTab by remember { mutableIntStateOf(0) }
 
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -142,6 +142,11 @@ fun AdminPanelScreen(
                     }
                 }
                 7 -> HistoryOffersTab(offerVm)
+                8 -> {
+                    LaunchedEffect(Unit) {
+                        navController.navigate(Screen.AdminUserManagement.route)
+                    }
+                }
             }
         }
     }

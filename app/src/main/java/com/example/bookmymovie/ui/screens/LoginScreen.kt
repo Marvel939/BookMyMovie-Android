@@ -176,13 +176,39 @@ fun LoginScreen(navController: NavController) {
                                         } else {
                                             // Check if user is a Theatre Owner
                                             db.child("theatre_owners").child(uid).get().addOnSuccessListener { ownerSnap ->
-                                                isLoading = false
                                                 if (ownerSnap.exists()) {
+                                                    isLoading = false
                                                     auth.signOut()
                                                     Toast.makeText(context, "Error: Theatre Owner accounts cannot log in here. Use Owner Login.", Toast.LENGTH_LONG).show()
                                                 } else {
-                                                    navController.navigate(Screen.Home.route) {
-                                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                                    // Check if regular user is blocked
+                                                    db.child("users").child(uid).get().addOnSuccessListener { userSnap ->
+                                                        isLoading = false
+                                                        if (userSnap.exists()) {
+                                                            val userStatus = userSnap.child("status").value as? String ?: "active"
+                                                            val isDeleted = userSnap.child("isDeleted").value as? Boolean ?: false
+                                                            
+                                                            if (isDeleted) {
+                                                                auth.signOut()
+                                                                Toast.makeText(context, "Your account has been deleted.", Toast.LENGTH_SHORT).show()
+                                                            } else if (userStatus == "blocked") {
+                                                                auth.signOut()
+                                                                Toast.makeText(context, "Your account has been blocked. Please contact support.", Toast.LENGTH_SHORT).show()
+                                                            } else {
+                                                                navController.navigate(Screen.Home.route) {
+                                                                    popUpTo(Screen.Login.route) { inclusive = true }
+                                                                }
+                                                            }
+                                                        } else {
+                                                            navController.navigate(Screen.Home.route) {
+                                                                popUpTo(Screen.Login.route) { inclusive = true }
+                                                            }
+                                                        }
+                                                    }.addOnFailureListener {
+                                                        isLoading = false
+                                                        navController.navigate(Screen.Home.route) {
+                                                            popUpTo(Screen.Login.route) { inclusive = true }
+                                                        }
                                                     }
                                                 }
                                             }.addOnFailureListener {
@@ -266,13 +292,39 @@ fun LoginScreen(navController: NavController) {
                                     Toast.makeText(context, "Error: Admin accounts cannot log in here. Use Admin Login.", Toast.LENGTH_LONG).show()
                                 } else {
                                     db.child("theatre_owners").child(uid).get().addOnSuccessListener { ownerSnap ->
-                                        isGoogleLoading = false
                                         if (ownerSnap.exists()) {
+                                            isGoogleLoading = false
                                             auth.signOut()
                                             Toast.makeText(context, "Error: Theatre Owner accounts cannot log in here. Use Owner Login.", Toast.LENGTH_LONG).show()
                                         } else {
-                                            navController.navigate(Screen.Home.route) {
-                                                popUpTo(Screen.Login.route) { inclusive = true }
+                                            // Check if regular user is blocked or deleted
+                                            db.child("users").child(uid).get().addOnSuccessListener { userSnap ->
+                                                isGoogleLoading = false
+                                                if (userSnap.exists()) {
+                                                    val userStatus = userSnap.child("status").value as? String ?: "active"
+                                                    val isDeleted = userSnap.child("isDeleted").value as? Boolean ?: false
+                                                    
+                                                    if (isDeleted) {
+                                                        auth.signOut()
+                                                        Toast.makeText(context, "Your account has been deleted.", Toast.LENGTH_SHORT).show()
+                                                    } else if (userStatus == "blocked") {
+                                                        auth.signOut()
+                                                        Toast.makeText(context, "Your account has been blocked. Please contact support.", Toast.LENGTH_SHORT).show()
+                                                    } else {
+                                                        navController.navigate(Screen.Home.route) {
+                                                            popUpTo(Screen.Login.route) { inclusive = true }
+                                                        }
+                                                    }
+                                                } else {
+                                                    navController.navigate(Screen.Home.route) {
+                                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                                    }
+                                                }
+                                            }.addOnFailureListener {
+                                                isGoogleLoading = false
+                                                navController.navigate(Screen.Home.route) {
+                                                    popUpTo(Screen.Login.route) { inclusive = true }
+                                                }
                                             }
                                         }
                                     }.addOnFailureListener {

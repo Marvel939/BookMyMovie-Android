@@ -1,8 +1,10 @@
 package com.example.bookmymovie.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.example.bookmymovie.model.Offer
 import com.example.bookmymovie.model.OfferApprovalStatus
+import com.example.bookmymovie.utils.NotificationHelper
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -70,7 +72,7 @@ class TheatreOwnerCreateOfferViewModel : ViewModel() {
             })
     }
 
-    fun createOffer(offer: Offer) {
+    fun createOffer(context: Context, offer: Offer) {
         _isLoading.value = true
         _errorMessage.value = null
         
@@ -85,6 +87,14 @@ class TheatreOwnerCreateOfferViewModel : ViewModel() {
             .addOnSuccessListener {
                 _isLoading.value = false
                 _creationSuccess.value = true
+                
+                // Create notification for all users about the new offer (pending approval)
+                val notificationHelper = NotificationHelper(context)
+                notificationHelper.addOfferNotification(
+                    offerTitle = offer.title,
+                    offerDescription = offer.description,
+                    offerId = offerToSave.id
+                )
             }
             .addOnFailureListener {
                 _isLoading.value = false

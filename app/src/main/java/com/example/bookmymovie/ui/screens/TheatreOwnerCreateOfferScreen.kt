@@ -455,7 +455,7 @@ fun TheatreOwnerCreateOfferScreen(
                         startDate = startMillis,
                         endDate = endMillis
                     )
-                    viewModel.createOffer(offer)
+                    viewModel.createOffer(context, offer)
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = !isLoading,

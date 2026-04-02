@@ -14,6 +14,7 @@ import com.example.bookmymovie.model.FoodItem
 import com.example.bookmymovie.model.SeatData
 import com.example.bookmymovie.model.CinemaShowtime
 import com.example.bookmymovie.services.ReminderScheduler
+import com.example.bookmymovie.utils.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -439,6 +440,7 @@ class BookingViewModel : ViewModel() {
 
     // ── Confirm booking & save to Firebase ──────────────────────────────────
     fun confirmBooking(
+        context: Context,
         movieId: String,
         movieName: String,
         moviePoster: String,
@@ -542,6 +544,16 @@ class BookingViewModel : ViewModel() {
                             .setValue(bookingToMap(booking))
                         confirmedBooking = booking
                         isCreatingBooking = false
+                        
+                        // Create booking notification for user
+                        val notificationHelper = NotificationHelper(context)
+                        notificationHelper.addBookingNotification(
+                            userId = uid,
+                            movieTitle = booking.movieName,
+                            theatreName = booking.cinemaName,
+                            showDate = booking.date,
+                            bookingId = booking.bookingId
+                        )
                         
                         // Handle Cashback
                         if (cashbackAmount > 0) {
@@ -699,7 +711,7 @@ class BookingViewModel : ViewModel() {
             })
     }
 
-    fun requestRefund(bookingId: String, onComplete: (Boolean, String) -> Unit) {
+    fun requestRefund(context: Context, bookingId: String, onComplete: (Boolean, String) -> Unit) {
         if (bookingId.isBlank()) {
             onComplete(false, "Invalid booking")
             return
@@ -758,6 +770,8 @@ class BookingViewModel : ViewModel() {
                         val sId = bookingSnapshot.child("screenId").getValue(String::class.java) ?: ""
                         val stId = bookingSnapshot.child("showtimeId").getValue(String::class.java) ?: ""
                         val seatsList = bookingSnapshot.child("seats").children.mapNotNull { it.getValue(String::class.java) }
+                        val movieTitle = bookingSnapshot.child("movieName").getValue(String::class.java) ?: "Movie"
+                        val refundAmount = bookingSnapshot.child("refundableAmount").getValue(Int::class.java) ?: 0
 
                         if (pId.isNotBlank() && sId.isNotBlank() && stId.isNotBlank()) {
                             val seatsRef = db.getReference("seats").child(pId).child(sId).child(stId)
@@ -766,6 +780,15 @@ class BookingViewModel : ViewModel() {
                                 seatsRef.child(seatId).child("bookedByUid").setValue("")
                             }
                         }
+                        
+                        // Create refund notification for user
+                        val notificationHelper = NotificationHelper(context)
+                        notificationHelper.addRefundNotification(
+                            userId = uid,
+                            movieTitle = movieTitle,
+                            refundAmount = refundAmount.toDouble(),
+                            transactionId = bookingId
+                        )
                     }
 
                     isRefunding = false
