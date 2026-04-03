@@ -762,7 +762,7 @@ class BookingViewModel : ViewModel() {
             Firebase.functions
                 .getHttpsCallable("requestBookingRefund")
                 .call(data)
-                .addOnSuccessListener {
+                .addOnSuccessListener { response ->
                     // Release seats in Firebase upon successful refund
                     val bookingSnapshot = snapshot.children.find { it.child("bookingId").value == bookingId }
                     if (bookingSnapshot != null) {
@@ -771,7 +771,10 @@ class BookingViewModel : ViewModel() {
                         val stId = bookingSnapshot.child("showtimeId").getValue(String::class.java) ?: ""
                         val seatsList = bookingSnapshot.child("seats").children.mapNotNull { it.getValue(String::class.java) }
                         val movieTitle = bookingSnapshot.child("movieName").getValue(String::class.java) ?: "Movie"
-                        val refundAmount = bookingSnapshot.child("refundableAmount").getValue(Int::class.java) ?: 0
+                        
+                        // Get the actual refunded amount from the Cloud Function response
+                        val responseData = response.data as? Map<*, *>
+                        val refundAmount = (responseData?.get("refundableAmount") as? Number)?.toLong()?.toInt() ?: 0
 
                         if (pId.isNotBlank() && sId.isNotBlank() && stId.isNotBlank()) {
                             val seatsRef = db.getReference("seats").child(pId).child(sId).child(stId)
