@@ -220,8 +220,11 @@ class AdminUserManagementViewModel : ViewModel() {
     fun softDeleteUser(userId: String) {
         usersRef.child(userId).child("isDeleted").setValue(true)
             .addOnSuccessListener {
+                // Update local state instead of reloading to avoid page refresh
+                allUsers = allUsers.map { user ->
+                    if (user.userId == userId) user.copy(isDeleted = true) else user
+                }
                 actionMessage = "User soft deleted successfully"
-                loadAllUsers() // Refresh list
                 closeEditDialog()
             }
             .addOnFailureListener { error ->
@@ -373,8 +376,11 @@ class AdminUserManagementViewModel : ViewModel() {
     fun restoreSoftDeletedUser(userId: String) {
         usersRef.child(userId).child("isDeleted").setValue(false)
             .addOnSuccessListener {
+                // Update local state instead of reloading to avoid page refresh
+                allUsers = allUsers.map { user ->
+                    if (user.userId == userId) user.copy(isDeleted = false) else user
+                }
                 actionMessage = "User restored successfully"
-                loadAllUsers() // Refresh list
             }
             .addOnFailureListener { error ->
                 actionError = "Failed to restore user: ${error.message}"

@@ -77,6 +77,12 @@ object GoogleAuthHelper {
                                                 profileImageUrl = firebaseUser.photoUrl?.toString() ?: ""
                                             )
                                             database.child(firebaseUser.uid).setValue(user)
+                                        } else {
+                                            // If user exists but was soft deleted, automatically restore them when they login with Google
+                                            val isDeleted = snapshot.child("isDeleted").value as? Boolean ?: false
+                                            if (isDeleted) {
+                                                database.child(firebaseUser.uid).child("isDeleted").setValue(false)
+                                            }
                                         }
                                         onSuccess()
                                     }

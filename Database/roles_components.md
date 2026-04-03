@@ -81,4 +81,76 @@
     <td style="background-color: #fff; border: 1px solid #666;">Onboard System Co-Administrators<br>Perform Global Database Moderation</td>
   </tr>
 
+<!-- Row 7: Refunds & Wallet Management -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Refunds & Wallet Management</td>
+    <td style="background-color: #fff; border: 1px solid #666;">View & Manage Refunds<br>Check Wallet Balance<br>Initiate Wallet Transactions</td>
+    <td style="background-color: #fff; border: 1px solid #666;">N/A</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Monitor All Refunds & Disputes<br>Manage Wallet Transaction Ledger<br>Process Refund Approvals</td>
+  </tr>
+
+<!-- Row 8: Offers & Promotions -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Offers & Promotions</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Browse & Apply Promotional Offers<br>View Active Discounts</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Create & Manage Theatre-Specific Offers<br>Track Offer Performance</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Create & Approve Platform-Wide Offers<br>Review & Validate All Promotions<br>Manage Offer Budget & Restrictions</td>
+  </tr>
+
+<!-- Row 9: Notifications & Reminders -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Notifications & Reminders</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Receive Booking Alerts<br>Get Showtime Notifications<br>Receive Promotional Updates</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Send Screen-Specific Alerts<br>Notify About Booking Requests</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Configure Global Notification Policies<br>Send System-Wide Announcements<br>Schedule Reminder Campaigns</td>
+  </tr>
+
+<!-- Row 10: User Search & Discovery -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Search & Discovery</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Search Movies by Title/Genre<br>Filter by Language & Rating<br>Discover New Releases</td>
+    <td style="background-color: #fff; border: 1px solid #666;">N/A</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Index & Manage Search Catalog<br>Control Feature Visibility<br>Configure Search Rankings</td>
+  </tr>
+
+<!-- Row 11: Wishlist & Library Management -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Wishlist & Library Management</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Create & Manage Wishlists<br>Track Owned/Rented Streaming Titles<br>View Purchase History</td>
+    <td style="background-color: #fff; border: 1px solid #666;">N/A</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Monitor User Libraries & Wishlists<br>Manage Content Expiration<br>Audit Purchase Transactions</td>
+  </tr>
+
+<!-- Row 12: Reviews & Ratings System -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Reviews & Ratings</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Write & Publish Movie Reviews<br>Add Rating & Experience Tags<br>View Community Feedback</td>
+    <td style="background-color: #fff; border: 1px solid #666;">N/A</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Moderate User Reviews<br>Remove Inappropriate Content<br>Manage Review Authenticity</td>
+  </tr>
+
+<!-- Row 13: User Management & Analytics -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">User Management & Analytics</td>
+    <td style="background-color: #fff; border: 1px solid #666;">View Personal Analytics<br>Manage Profile Settings</td>
+    <td style="background-color: #fff; border: 1px solid #666;">View Cinema Analytics<br>Track Revenue & Occupancy<br>Monitor Screen Performance</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Access Platform-Wide Analytics<br>Manage User Accounts & Roles<br>Generate Revenue Reports<br>Monitor System Health & KPIs</td>
+  </tr>
+
+<!-- Row 14: Cinema Screen & Seat Configuration -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">Cinema Screen & Seat Management</td>
+    <td style="background-color: #fff; border: 1px solid #666;">View Seat Layouts<br>Book Preferred Seats</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Add New Screens to Cinema<br>Configure Seat Categories & Layout<br>Manage Seat Types (Platinum/Gold/Silver)<br>Set Dynamic Pricing</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Supervise All Screen Configurations<br>Validate Seat Capacity<br>Manage System-Wide Pricing Rules</td>
+  </tr>
+
+<!-- Row 15: AI Chatbot & Intelligent Booking -->
+  <tr>
+    <td style="font-weight: bold; background-color: #fff; border: 1px solid #666;">AI Chatbot & Intelligent Assistance</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Chat with AI for Movie Recommendations<br>Voice-Based Booking Assistance<br>Access Chat History & Saved Queries</td>
+    <td style="background-color: #fff; border: 1px solid #666;">N/A</td>
+    <td style="background-color: #fff; border: 1px solid #666;">Configure AI Chatbot Responses<br>Monitor Chat Sessions & User Behavior<br>Fine-Tune Recommendation Algorithms</td>
+  </tr>
+
 </table>

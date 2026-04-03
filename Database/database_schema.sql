@@ -262,6 +262,54 @@ CREATE TABLE wishlist_movies (
     movie_id VARCHAR(100) NOT NULL REFERENCES movies(movie_id) ON DELETE CASCADE,
     PRIMARY KEY (wishlist_id, movie_id)
 );
+CREATE TABLE offers (
+    id VARCHAR(50) PRIMARY KEY,
+
+    title VARCHAR(255),
+    description TEXT,
+
+    coupon_code VARCHAR(50) UNIQUE,
+    
+    active BOOLEAN DEFAULT TRUE,
+
+    approval_status VARCHAR(50),
+    approval_status_enum VARCHAR(50),
+
+    category VARCHAR(50),
+    category_enum VARCHAR(50),
+
+    discount_type VARCHAR(50),
+    discount_type_enum VARCHAR(50),
+
+    discount_amount DECIMAL(10,2) DEFAULT 0,
+    discount_percentage INT,
+    max_discount_amount DECIMAL(10,2) DEFAULT 0,
+
+    min_order_amount DECIMAL(10,2),
+    max_redemptions_per_user INT,
+
+    start_date BIGINT,
+    end_date BIGINT,
+
+    movie_id VARCHAR(50),
+    theatre_id VARCHAR(50),
+    theatre_name VARCHAR(255),
+
+    theatre_owner_id VARCHAR(50),
+
+    -- FOREIGN KEYS (optional but recommended)
+    CONSTRAINT fk_offer_movie 
+        FOREIGN KEY (movie_id) REFERENCES movies(movie_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_offer_theatre 
+        FOREIGN KEY (theatre_id) REFERENCES theatres(theatre_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_offer_owner 
+        FOREIGN KEY (theatre_owner_id) REFERENCES users(user_id)
+        ON DELETE SET NULL
+);
 
 -- =========================================================================
 -- INDEXES FOR PERFORMANCE
