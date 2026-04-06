@@ -68,6 +68,13 @@ object StreamingRepository {
     }
 
     /**
+     * Fetch OTT movies catalog for filter display
+     */
+    suspend fun fetchOTTCatalog(): List<StreamingMovie> {
+        return getAllMovies()
+    }
+
+    /**
      * Fetch popular OTT movies from TMDB via discover endpoint.
      */
     private suspend fun fetchTmdbOttMovies(): List<StreamingMovie> {

@@ -267,24 +267,53 @@ fun HomeScreen(
                         }
                     } else {
                         BannerCarousel(movieViewModel.nowPlayingMovies, navController)
-                        Spacer(modifier = Modifier.height(28.dp))
-                        MovieSection("Now Showing", movieViewModel.nowPlayingMovies, navController)
-                        Spacer(modifier = Modifier.height(28.dp))
-
-                        // Streaming Highlight Row
-                        StreamingHighlightRow(
-                            movies = streamingViewModel.highlightMovies,
-                            navController = navController
-                        )
-
-                        // Platform Offers Section
-                        PlatformOffersSection(offersViewModel, navController)
+                        Spacer(modifier = Modifier.height(20.dp))
                         
-                        ComingSoonSection("Coming Soon", movieViewModel.upcomingMovies, navController)
-                        Spacer(modifier = Modifier.height(28.dp))
-                        MovieSection("Popular", movieViewModel.popularMovies, navController)
-                        Spacer(modifier = Modifier.height(28.dp))
-                        MovieSection("Top Rated", movieViewModel.topRatedMovies, navController)
+                        // Filter Chips Row
+                        FilterChipsRow(
+                            selectedFilter = movieViewModel.selectedFilter,
+                            availableGenres = movieViewModel.getAvailableGenres(),
+                            onFilterSelected = { filter ->
+                                movieViewModel.setFilter(filter)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
+                        // Show OTT movies when OTT filter is selected
+                        if (movieViewModel.selectedFilter == "OTT") {
+                            OTTMoviesSection(
+                                movies = movieViewModel.ottMovies,
+                                navController = navController
+                            )
+                        } else {
+                            // Show regular filtered movies
+                            if (movieViewModel.filteredNowPlayingMovies.isNotEmpty()) {
+                                MovieSection("Now Showing", movieViewModel.filteredNowPlayingMovies, navController)
+                                Spacer(modifier = Modifier.height(28.dp))
+                            }
+
+                            // Streaming Highlight Row
+                            StreamingHighlightRow(
+                                movies = streamingViewModel.highlightMovies,
+                                navController = navController
+                            )
+
+                            // Platform Offers Section
+                            PlatformOffersSection(offersViewModel, navController)
+                            
+                            ComingSoonSection("Coming Soon", movieViewModel.upcomingMovies, navController)
+                            Spacer(modifier = Modifier.height(28.dp))
+                            
+                            if (movieViewModel.filteredPopularMovies.isNotEmpty()) {
+                                MovieSection("Popular", movieViewModel.filteredPopularMovies, navController)
+                                Spacer(modifier = Modifier.height(28.dp))
+                            }
+                            
+                            if (movieViewModel.filteredTopRatedMovies.isNotEmpty()) {
+                                MovieSection("Top Rated", movieViewModel.filteredTopRatedMovies, navController)
+                                Spacer(modifier = Modifier.height(20.dp))
+                            }
+                        }
                         Spacer(modifier = Modifier.height(20.dp))
                     }
                 }
@@ -809,3 +838,203 @@ fun PlatformOfferCard(offer: com.example.bookmymovie.model.Offer, onClick: () ->
         }
     }
 }
+
+// ─── Filter Chips Row ─────────────────────────────────────────────────
+
+@Composable
+fun FilterChipsRow(
+    selectedFilter: String?,
+    availableGenres: List<String>,
+    onFilterSelected: (String?) -> Unit
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        // Clear Filter Button
+        item {
+            FilterChipButton(
+                text = "All",
+                selected = selectedFilter == null,
+                onClick = { onFilterSelected(null) }
+            )
+        }
+
+        // Genre Filters
+        items(availableGenres) { genre ->
+            FilterChipButton(
+                text = genre,
+                selected = selectedFilter == genre,
+                onClick = { onFilterSelected(genre) }
+            )
+        }
+
+        // OTT Filter
+        item {
+            FilterChipButton(
+                text = "OTT",
+                selected = selectedFilter == "OTT",
+                onClick = { onFilterSelected("OTT") },
+                hasIcon = true
+            )
+        }
+    }
+}
+
+@Composable
+fun FilterChipButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    hasIcon: Boolean = false
+) {
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick),
+        color = if (selected) PrimaryAccent else CardBackground,
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (hasIcon) {
+                Icon(
+                    Icons.Default.LiveTv,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = if (selected) Color.White else TextSecondary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (selected) Color.White else TextSecondary
+            )
+        }
+    }
+}
+
+// ─── OTT Movies Section ─────────────────────────────────────────────────
+
+@Composable
+fun OTTMoviesSection(
+    movies: List<com.example.bookmymovie.model.StreamingMovie>,
+    navController: NavController
+) {
+    if (movies.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "No OTT movies available",
+                color = TextSecondary,
+                fontSize = 14.sp
+            )
+        }
+        return
+    }
+
+    Column {
+        Text(
+            text = "OTT Movies",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(movies) { movie ->
+                OTTMovieCard(movie) {
+                    navController.navigate(Screen.StreamDetail.createRoute(movie.movieId))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OTTMovieCard(
+    movie: com.example.bookmymovie.model.StreamingMovie,
+    onClick: () -> Unit
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "scale"
+    )
+
+    Column(
+        modifier = Modifier
+            .width(150.dp)
+            .scale(scale)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
+    ) {
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+        ) {
+            Box {
+                AsyncImage(
+                    model = movie.posterUrl,
+                    contentDescription = movie.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                // OTT Platform badge
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = PrimaryAccent.copy(alpha = 0.9f)
+                ) {
+                    Text(
+                        text = movie.ottPlatform,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = movie.title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = movie.ottPlatform,
+            fontSize = 11.sp,
+            color = TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
