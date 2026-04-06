@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,11 +31,14 @@ import androidx.navigation.NavController
 import com.example.bookmymovie.R
 import com.example.bookmymovie.auth.GoogleAuthHelper
 import com.example.bookmymovie.firebase.User
+import com.example.bookmymovie.location.GoogleGeocoding
+import com.example.bookmymovie.location.LocationManager
 import com.example.bookmymovie.navigation.Screen
 import com.example.bookmymovie.ui.components.AppLogo
 import com.example.bookmymovie.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -63,12 +68,21 @@ fun SignupScreen(navController: NavController) {
     var phone by remember { mutableStateOf("") }
     var dob by remember { mutableStateOf("") }
     var city by remember { mutableStateOf("") }
+    var country by remember { mutableStateOf("") }
+    var state by remember { mutableStateOf("") }
+    var latitude by remember { mutableStateOf(0.0) }
+    var longitude by remember { mutableStateOf(0.0) }
 
     var countryCode by remember { mutableStateOf("+91") }
     var isCodeExpanded by remember { mutableStateOf(false) }
+    var isCountryExpanded by remember { mutableStateOf(false) }
+    var isStateExpanded by remember { mutableStateOf(false) }
 
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var isDetectingLocation by remember { mutableStateOf(false) }
+    
+    var phoneError by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
@@ -85,6 +99,37 @@ fun SignupScreen(navController: NavController) {
         calendar.get(Calendar.MONTH),
         calendar.get(Calendar.DAY_OF_MONTH)
     )
+
+    // Auto-detect location on screen load (only if GPS is enabled)
+    LaunchedEffect(Unit) {
+        LocationManager.initialize(context)
+        if (LocationManager.hasLocationPermission(context) && LocationManager.isGpsEnabled(context)) {
+            coroutineScope.launch {
+                isDetectingLocation = true
+                val location = LocationManager.getCurrentLocation(context)
+                if (location != null) {
+                    latitude = location.latitude
+                    longitude = location.longitude
+                    val locationData = GoogleGeocoding.getAddressFromCoordinates(
+                        context,
+                        latitude,
+                        longitude
+                    )
+                    if (locationData != null) {
+                        address = locationData.address
+                        city = locationData.city
+                        country = locationData.country
+                        state = locationData.state
+                    }
+                }
+                isDetectingLocation = false
+            }
+        }
+    }
+
+    fun validatePhoneNumber(phoneNumber: String): Boolean {
+        return phoneNumber.length == 10 && phoneNumber.all { it.isDigit() }
+    }
 
     fun isPasswordValid(password: String): Boolean {
         if (password.length < 8) return false
@@ -203,12 +248,29 @@ fun SignupScreen(navController: NavController) {
             Spacer(modifier = Modifier.width(10.dp))
             OutlinedTextField(
                 value = phone,
-                onValueChange = { phone = it },
+                onValueChange = { newValue ->
+                    if (newValue.length <= 10 && newValue.all { it.isDigit() }) {
+                        phone = newValue
+                        phoneError = if (newValue.isNotEmpty() && newValue.length < 10) {
+                            "Phone number should be 10 digits"
+                        } else {
+                            null
+                        }
+                    }
+                },
                 label = { Text("Phone Number", color = TextSecondary) },
                 modifier = Modifier.weight(0.7f),
                 shape = RoundedCornerShape(16.dp),
                 singleLine = true,
                 colors = fieldColors
+            )
+        }
+        if (phoneError != null) {
+            Text(
+                phoneError ?: "",
+                color = SecondaryAccent,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
             )
         }
         Spacer(modifier = Modifier.height(14.dp))
@@ -296,14 +358,203 @@ fun SignupScreen(navController: NavController) {
         )
         Spacer(modifier = Modifier.height(14.dp))
 
-        OutlinedTextField(
-            value = address,
-            onValueChange = { address = it },
-            label = { Text("Address", color = TextSecondary) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = fieldColors
-        )
+        // Country dropdown
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(CardBackground, RoundedCornerShape(16.dp))
+                .border(1.dp, DividerColor, RoundedCornerShape(16.dp))
+                .clickable { isCountryExpanded = !isCountryExpanded }
+                .padding(12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = if (country.isEmpty()) "Country" else country,
+                color = if (country.isEmpty()) TextSecondary else TextPrimary,
+                fontSize = 16.sp
+            )
+            Icon(
+                Icons.Default.ArrowDropDown,
+                contentDescription = null,
+                tint = TextSecondary,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(24.dp)
+            )
+            DropdownMenu(
+                expanded = isCountryExpanded,
+                onDismissRequest = { isCountryExpanded = false },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                listOf("India", "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Japan", "China", "Brazil").forEach { selectedCountry ->
+                    DropdownMenuItem(
+                        text = { Text(selectedCountry, color = TextPrimary) },
+                        onClick = {
+                            country = selectedCountry
+                            isCountryExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // State dropdown
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(CardBackground, RoundedCornerShape(16.dp))
+                .border(1.dp, DividerColor, RoundedCornerShape(16.dp))
+                .clickable { isStateExpanded = !isStateExpanded }
+                .padding(12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = if (state.isEmpty()) "State / Province" else state,
+                color = if (state.isEmpty()) TextSecondary else TextPrimary,
+                fontSize = 16.sp
+            )
+            Icon(
+                Icons.Default.ArrowDropDown,
+                contentDescription = null,
+                tint = TextSecondary,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(24.dp)
+            )
+            DropdownMenu(
+                expanded = isStateExpanded,
+                onDismissRequest = { isStateExpanded = false },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val statesList = when (country) {
+                    "India" -> listOf("Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal")
+                    "United States" -> listOf("Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming")
+                    "United Kingdom" -> listOf("England", "Scotland", "Wales", "Northern Ireland")
+                    "Canada" -> listOf("Alberta", "British Columbia", "Manitoba", "New Brunswick", "Newfoundland and Labrador", "Nova Scotia", "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan")
+                    "Australia" -> listOf("New South Wales", "Queensland", "South Australia", "Tasmania", "Victoria", "Western Australia", "Australian Capital Territory", "Northern Territory")
+                    else -> listOf()
+                }
+                statesList.forEach { selectedState ->
+                    DropdownMenuItem(
+                        text = { Text(selectedState, color = TextPrimary) },
+                        onClick = {
+                            state = selectedState
+                            isStateExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Address field with Detect Location button
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Address",
+                    color = TextSecondary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+                
+                if (!isDetectingLocation) {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                try {
+                                    isDetectingLocation = true
+                                    Toast.makeText(context, "Detecting location...", Toast.LENGTH_SHORT).show()
+                                    
+                                    var location: android.location.Location? = null
+                                    var retryCount = 0
+                                    val maxRetries = 2
+                                    
+                                    // Retry loop - GPS can take 5-10 seconds to acquire fix
+                                    while (location == null && retryCount < maxRetries) {
+                                        location = LocationManager.getCurrentLocation(context)
+                                        if (location == null && retryCount < maxRetries - 1) {
+                                            kotlinx.coroutines.delay(1000) // Wait 1 second between retries
+                                        }
+                                        retryCount++
+                                    }
+                                    
+                                    if (location != null) {
+                                        latitude = location.latitude
+                                        longitude = location.longitude
+                                        val locationData = GoogleGeocoding.getAddressFromCoordinates(
+                                            context,
+                                            latitude,
+                                            longitude
+                                        )
+                                        if (locationData != null) {
+                                            address = locationData.address
+                                            city = locationData.city
+                                            country = locationData.country
+                                            state = locationData.state
+                                            Toast.makeText(context, "Location detected", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Could not get address from location", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Please turn on your location", Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Error detecting location", Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    isDetectingLocation = false
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .height(32.dp)
+                            .wrapContentWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryAccent,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Detect", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                } else {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = PrimaryAccent,
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = address,
+                onValueChange = { address = it },
+                label = { Text("Address", color = TextSecondary) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = fieldColors,
+                minLines = 2,
+                maxLines = 4
+            )
+        }
         Spacer(modifier = Modifier.height(14.dp))
 
         OutlinedTextField(
@@ -347,8 +598,17 @@ fun SignupScreen(navController: NavController) {
                         password.isNotEmpty() && confirmPassword.isNotEmpty() &&
                         gender.isNotEmpty() && phone.isNotEmpty() && dob.isNotEmpty() && city.isNotEmpty()) {
 
-                        if (password == confirmPassword) {
-                            if (isPasswordValid(password)) {
+                        when {
+                            !validatePhoneNumber(phone) -> {
+                                Toast.makeText(context, "Phone number must be exactly 10 digits", Toast.LENGTH_SHORT).show()
+                            }
+                            password != confirmPassword -> {
+                                Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
+                            }
+                            !isPasswordValid(password) -> {
+                                Toast.makeText(context, "Password does not meet requirements", Toast.LENGTH_SHORT).show()
+                            }
+                            else -> {
                                 isLoading = true
                                 auth.createUserWithEmailAndPassword(email, password)
                                     .addOnCompleteListener { task ->
@@ -364,7 +624,11 @@ fun SignupScreen(navController: NavController) {
                                                 countryCode = countryCode,
                                                 phone = phone,
                                                 dob = dob,
-                                                city = city
+                                                city = city,
+                                                country = country,
+                                                state = state,
+                                                latitude = latitude,
+                                                longitude = longitude
                                             )
                                             database.child(userId).setValue(user).addOnCompleteListener { dbTask ->
                                                 if (dbTask.isSuccessful) {
@@ -390,11 +654,7 @@ fun SignupScreen(navController: NavController) {
                                             Toast.makeText(context, "Signup failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                                         }
                                     }
-                            } else {
-                                Toast.makeText(context, "Password does not meet requirements", Toast.LENGTH_SHORT).show()
                             }
-                        } else {
-                            Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()

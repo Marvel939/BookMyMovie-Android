@@ -19,3 +19,4 @@ node_modules/
 firebase-debug.log
 *.log
 openrouter.key
+app/src/main/assets/env_config.properties
