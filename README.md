@@ -36,3 +36,10 @@ Detailed project documentation, including diagrams, schemas, and standards, can 
 - **Animation**: Compose Animations & Lottie
 - **Analytics**: Vico (Bar Charts)
 - **AI Integration**: Google Gemini LLM via Firebase Functions
+
+
+---
+
+## Developed By
+
+Designed and Developed By **Het Patel** and teammate **Krutarth Raychura** aka **webKing021**.
