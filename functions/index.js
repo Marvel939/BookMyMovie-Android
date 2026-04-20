@@ -317,8 +317,9 @@ exports.requestBookingRefund = onCall(async (request) => {
 
   if (email && process.env.GMAIL_EMAIL && process.env.GMAIL_PASSWORD) {
     try {
+      console.log("Sending refund email to:", email);
       const transporter = getMailTransporter();
-      await transporter.sendMail({
+      const info = await transporter.sendMail({
         from: `BookMyMovie <${process.env.GMAIL_EMAIL}>`,
         to: email,
         subject: `Refund Processed – ${booking.movieName || "Booking"}`,
@@ -335,9 +336,16 @@ exports.requestBookingRefund = onCall(async (request) => {
           </div>
         `,
       });
+      console.log("Refund email sent successfully. Message ID:", info.messageId);
     } catch (e) {
-      console.error("Refund email send failed:", e.message);
+      console.error("Refund email send failed - Details:", {
+        message: e.message,
+        code: e.code,
+        to: email
+      });
     }
+  } else {
+    console.warn("Refund email not sent. Missing credentials or email. Email:", email, "GMAIL_EMAIL:", !!process.env.GMAIL_EMAIL, "GMAIL_PASSWORD:", !!process.env.GMAIL_PASSWORD);
   }
 
   if (fullPhone.startsWith("+") && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
@@ -455,34 +463,52 @@ async function generateBookingPdf(booking, qrBuffer) {
 // ── Send Booking Confirmation Email ───────────────────────────────────────────
 exports.sendBookingEmail = onCall(async (request) => {
   const { email, booking } = request.data;
+  
+  // Validate email and environment variables
+  if (!email || !email.includes('@')) {
+    console.error("Invalid email provided:", email);
+    throw new HttpsError("invalid-argument", "Invalid email address");
+  }
+  
+  if (!process.env.GMAIL_EMAIL || !process.env.GMAIL_PASSWORD) {
+    console.error("Gmail credentials not configured. EMAIL:", !!process.env.GMAIL_EMAIL, "PASSWORD:", !!process.env.GMAIL_PASSWORD);
+    throw new HttpsError("internal", "Email service not configured");
+  }
+  
   const seatsText = Array.isArray(booking.seats) ? booking.seats.join(", ") : booking.seats;
 
-  // 1. Generate QR code as PNG buffer (for PDF) and data URL (for HTML email)
-  const [qrBuffer, qrDataUrl] = await Promise.all([
-    QRCode.toBuffer(booking.bookingId, {
-      errorCorrectionLevel: "M",
-      margin: 2,
-      width: 300,
-      color: { dark: "#000000", light: "#FFFFFF" },
-    }),
-    QRCode.toDataURL(booking.bookingId, {
-      errorCorrectionLevel: "M",
-      margin: 2,
-      width: 200,
-    }),
-  ]);
-
-  // 2. Generate PDF with all booking details + QR code
-  const pdfBuffer = await generateBookingPdf(booking, qrBuffer);
-
-  // 3. Send email with PDF attachment
-  const transporter = getMailTransporter();
-
   try {
-    await transporter.sendMail({
+    // 1. Generate QR code as PNG buffer (for PDF) and data URL (for HTML email)
+    console.log("Generating QR code for booking:", booking.bookingId);
+    const [qrBuffer, qrDataUrl] = await Promise.all([
+      QRCode.toBuffer(booking.bookingId, {
+        errorCorrectionLevel: "M",
+        margin: 2,
+        width: 300,
+        color: { dark: "#000000", light: "#FFFFFF" },
+      }),
+      QRCode.toDataURL(booking.bookingId, {
+        errorCorrectionLevel: "M",
+        margin: 2,
+        width: 200,
+      }),
+    ]);
+    console.log("QR code generated successfully");
+
+    // 2. Generate PDF with all booking details + QR code
+    console.log("Generating PDF for booking:", booking.bookingId);
+    const pdfBuffer = await generateBookingPdf(booking, qrBuffer);
+    console.log("PDF generated successfully, size:", pdfBuffer.length, "bytes");
+
+    // 3. Send email with PDF attachment
+    console.log("Initializing mail transporter");
+    const transporter = getMailTransporter();
+    
+    console.log("Sending email to:", email);
+    const info = await transporter.sendMail({
       from: `BookMyMovie <${process.env.GMAIL_EMAIL}>`,
       to: email,
-      subject: `Booking Confirmed \u2013 ${booking.movieName}`,
+      subject: `Booking Confirmed – ${booking.movieName}`,
       html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#1a1a2e;color:#fff;padding:30px;border-radius:12px;">
         <h1 style="color:#e50914;text-align:center;margin:0 0 4px 0;">BookMyMovie</h1>
@@ -508,10 +534,10 @@ exports.sendBookingEmail = onCall(async (request) => {
             <tr><td style="padding:7px 0;color:#aaa;">Seats</td>
                 <td style="color:#fff;">${seatsText}</td></tr>
             ${booking.discountAmount > 0 ? `<tr><td style="padding:7px 0;color:#aaa;">Discount (${booking.discountCode || ''})</td>
-                <td style="color:#2ECC71;">-&#8377;${booking.discountAmount}</td></tr>` : ''}
+                <td style="color:#2ECC71;">-₹${booking.discountAmount}</td></tr>` : ''}
             <tr style="border-top:1px solid #333;">
                 <td style="padding:12px 0 4px 0;color:#aaa;font-size:15px;">Total Paid</td>
-                <td style="color:#e50914;font-weight:bold;font-size:20px;padding-top:12px;">&#8377;${booking.totalAmount}</td></tr>
+                <td style="color:#e50914;font-weight:bold;font-size:20px;padding-top:12px;">₹${booking.totalAmount}</td></tr>
           </table>
         </div>
 
@@ -533,20 +559,41 @@ exports.sendBookingEmail = onCall(async (request) => {
         },
       ],
     });
+    
+    console.log("Email sent successfully. Message ID:", info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Email send error:", error.message, error);
-    throw new Error("Failed to send email: " + error.message);
+    console.error("Email send error - Full Details:", {
+      message: error.message,
+      code: error.code,
+      response: error.response,
+      stack: error.stack
+    });
+    throw new HttpsError("internal", "Failed to send booking email: " + error.message);
   }
-
-  return { success: true };
 });
 
 // ── Send Booking Confirmation via WhatsApp (with PDF) ─────────────────────────
 exports.sendBookingWhatsApp = onCall(async (request) => {
   const { phone, booking } = request.data;
 
-  if (!phone || !booking) {
-    throw new Error("Missing phone or booking data");
+  console.log("sendBookingWhatsApp called with phone:", phone, "bookingId:", booking?.bookingId);
+
+  // Validate phone number format
+  if (!phone || typeof phone !== "string") {
+    console.error("Invalid phone number provided:", phone);
+    throw new HttpsError("invalid-argument", "Invalid phone number format");
+  }
+
+  // Phone must have country code
+  if (!phone.startsWith("+")) {
+    console.error("Phone number missing country code:", phone);
+    throw new HttpsError("invalid-argument", "Phone number must include country code (e.g., +91...)");
+  }
+
+  if (!booking || !booking.bookingId) {
+    console.error("Invalid booking data:", booking);
+    throw new HttpsError("invalid-argument", "Invalid booking data");
   }
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -555,66 +602,113 @@ exports.sendBookingWhatsApp = onCall(async (request) => {
 
   if (!accountSid || !authToken) {
     console.error("Twilio credentials not configured. SID present:", !!accountSid, "Token present:", !!authToken);
-    throw new Error("Twilio credentials not configured");
+    throw new HttpsError("internal", "Twilio service not configured");
   }
 
   const twilio = require("twilio")(accountSid, authToken);
 
   try {
+    console.log("Preparing WhatsApp message for booking:", booking.bookingId);
+    console.log("Booking data received:", {
+      bookingId: booking?.bookingId,
+      movieName: booking?.movieName,
+      cinemaName: booking?.cinemaName,
+      date: booking?.date,
+      time: booking?.time,
+      seats: booking?.seats
+    });
+
     const seatsText = Array.isArray(booking.seats)
       ? booking.seats.join(", ")
-      : booking.seats;
+      : (booking.seats || "N/A");
 
-    // 1. Generate QR code buffer
-    const qrBuffer = await QRCode.toBuffer(booking.bookingId, {
-      errorCorrectionLevel: "M",
-      margin: 2,
-      width: 300,
-      color: { dark: "#000000", light: "#FFFFFF" },
-    });
-
-    // 2. Generate PDF
-    const pdfBuffer = await generateBookingPdf(booking, qrBuffer);
-
-    // 3. Upload PDF to Firebase Storage and make it public
-    const fileName = `booking_tickets/${booking.bookingId}.pdf`;
-    const file = bucket.file(fileName);
-
-    await file.save(pdfBuffer, {
-      metadata: { contentType: "application/pdf" },
-    });
-
-    // Make file publicly accessible so Twilio can fetch it
-    await file.makePublic();
-    const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-
-    // 4. Send WhatsApp message with PDF
+    // Build message body with fallback values
     const messageBody =
       `🎬 *Booking Confirmed!*\n\n` +
-      `*Movie:* ${booking.movieName}\n` +
-      `*Cinema:* ${booking.cinemaName}\n` +
-      `*Screen:* ${booking.screenName} · ${booking.screenType}\n` +
-      `*Date:* ${booking.date}\n` +
-      `*Time:* ${booking.time}\n` +
-      `*Language:* ${booking.language}\n` +
+      `*Movie:* ${booking.movieName || "N/A"}\n` +
+      `*Cinema:* ${booking.cinemaName || "N/A"}\n` +
+      `*Screen:* ${booking.screenName || "N/A"} · ${booking.screenType || "N/A"}\n` +
+      `*Date:* ${booking.date || "N/A"}\n` +
+      `*Time:* ${booking.time || "N/A"}\n` +
+      `*Language:* ${booking.language || "N/A"}\n` +
       `*Seats:* ${seatsText}\n` +
-      (booking.discountAmount > 0 ? `*Discount (${booking.discountCode || ''}):* -₹${booking.discountAmount}\n` : "") +
-      `*Total Paid:* ₹${booking.totalAmount}\n\n` +
+      (booking.discountAmount > 0 ? `*Discount (${booking.discountCode || 'Applied'}):* -₹${booking.discountAmount}\n` : "") +
+      `*Total Paid:* ₹${booking.totalAmount || "0"}\n\n` +
       `*Booking ID:* ${booking.bookingId}\n\n` +
       `Your ticket PDF is attached. Enjoy the movie! 🍿`;
 
-    await twilio.messages.create({
+    let pdfUrl = null;
+    let messageSentWithPDF = false;
+
+    // Try to generate and upload PDF, but don't fail if it does
+    try {
+      console.log("Generating QR code for WhatsApp...");
+      const qrBuffer = await QRCode.toBuffer(booking.bookingId, {
+        errorCorrectionLevel: "M",
+        margin: 2,
+        width: 300,
+        color: { dark: "#000000", light: "#FFFFFF" },
+      });
+      console.log("QR code generated successfully");
+
+      console.log("Generating PDF for WhatsApp...");
+      const pdfBuffer = await generateBookingPdf(booking, qrBuffer);
+      console.log("PDF generated successfully, size:", pdfBuffer.length, "bytes");
+
+      console.log("Uploading PDF to Firebase Storage...");
+      const fileName = `booking_tickets/${booking.bookingId}.pdf`;
+      const file = bucket.file(fileName);
+
+      await file.save(pdfBuffer, {
+        metadata: { contentType: "application/pdf" },
+      });
+      console.log("PDF uploaded successfully");
+
+      await file.makePublic();
+      pdfUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      console.log("PDF made public, URL:", pdfUrl);
+      messageSentWithPDF = true;
+    } catch (pdfError) {
+      console.warn("PDF generation/upload failed, will send message without PDF:", {
+        message: pdfError.message,
+        code: pdfError.code,
+      });
+      pdfUrl = null;
+    }
+
+    // Send WhatsApp message (with or without PDF)
+    console.log("Sending WhatsApp to:", `whatsapp:${phone}`, "from:", twilioWhatsAppNumber, "withPDF:", messageSentWithPDF);
+    
+    const messageConfig = {
       from: twilioWhatsAppNumber,
       to: `whatsapp:${phone}`,
       body: messageBody,
-      mediaUrl: [pdfUrl],
-    });
+    };
 
-    console.log(`WhatsApp booking confirmation with PDF sent to ${phone}`);
-    return { success: true };
+    // Only add mediaUrl if PDF was successfully generated and uploaded
+    if (pdfUrl) {
+      messageConfig.mediaUrl = [pdfUrl];
+    }
+
+    const message = await twilio.messages.create(messageConfig);
+
+    console.log(`WhatsApp booking confirmation sent successfully to ${phone}. Message SID:`, message.sid, "WithPDF:", messageSentWithPDF);
+    return { 
+      success: true, 
+      messageSid: message.sid, 
+      pdfAttached: messageSentWithPDF,
+      message: messageSentWithPDF ? "Booking confirmation with PDF sent" : "Booking confirmation sent (PDF generation failed, message sent without attachment)"
+    };
   } catch (error) {
-    console.error("WhatsApp send error:", error.message, error);
-    throw new Error("Failed to send WhatsApp message: " + error.message);
+    console.error("WhatsApp send error - Full Details:", {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      phone: phone,
+      bookingId: booking?.bookingId,
+      stack: error.stack
+    });
+    throw new HttpsError("internal", "Failed to send WhatsApp message: " + error.message);
   }
 });
 
@@ -622,8 +716,16 @@ exports.sendBookingWhatsApp = onCall(async (request) => {
 exports.sendShowReminderWhatsApp = onCall(async (request) => {
   const { phone, movieName, showDate, showTime, theaterName, seats } = request.data;
 
-  if (!phone || !movieName) {
-    throw new Error("Missing required reminder data");
+  console.log("sendShowReminderWhatsApp called for movie:", movieName, "phone:", phone);
+
+  if (!phone || typeof phone !== "string" || !phone.startsWith("+")) {
+    console.error("Invalid phone number for reminder:", phone);
+    throw new HttpsError("invalid-argument", "Invalid phone number format. Must include country code (e.g., +91...)");
+  }
+
+  if (!movieName) {
+    console.error("Missing required reminder data: movieName");
+    throw new HttpsError("invalid-argument", "Missing movie name");
   }
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -631,8 +733,8 @@ exports.sendShowReminderWhatsApp = onCall(async (request) => {
   const twilioWhatsAppNumber = process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
 
   if (!accountSid || !authToken) {
-    console.error("Twilio credentials not configured");
-    throw new Error("Twilio credentials not configured");
+    console.error("Twilio credentials not configured for reminder");
+    throw new HttpsError("internal", "Twilio service not configured");
   }
 
   const twilio = require("twilio")(accountSid, authToken);
@@ -647,17 +749,25 @@ exports.sendShowReminderWhatsApp = onCall(async (request) => {
       `💺 *Seats:* ${seats}\n\n` +
       `Enjoy the movie! 🍿`;
 
-    await twilio.messages.create({
+    console.log("Sending 15-minute reminder to:", `whatsapp:${phone}`);
+    const message = await twilio.messages.create({
       from: twilioWhatsAppNumber,
       to: `whatsapp:${phone}`,
       body: messageBody,
     });
 
-    console.log(`WhatsApp show reminder sent to ${phone}`);
-    return { success: true };
+    console.log(`WhatsApp show reminder sent successfully to ${phone}. Message SID:`, message.sid);
+    return { success: true, messageSid: message.sid };
   } catch (error) {
-    console.error("WhatsApp reminder error:", error.message, error);
-    throw new Error("Failed to send WhatsApp reminder: " + error.message);
+    console.error("WhatsApp reminder error - Full Details:", {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      phone: phone,
+      movieName: movieName,
+      stack: error.stack
+    });
+    throw new HttpsError("internal", "Failed to send WhatsApp reminder: " + error.message);
   }
 });
 
@@ -676,8 +786,9 @@ exports.notifyPaymentFailure = onCall(async (request) => {
 
   if (email && process.env.GMAIL_EMAIL && process.env.GMAIL_PASSWORD) {
     try {
+      console.log("Sending payment failure email to:", email);
       const transporter = getMailTransporter();
-      await transporter.sendMail({
+      const info = await transporter.sendMail({
         from: `BookMyMovie <${process.env.GMAIL_EMAIL}>`,
         to: email,
         subject: `Payment Failed – ${movieName}`,
@@ -691,9 +802,17 @@ exports.notifyPaymentFailure = onCall(async (request) => {
           </div>
         `,
       });
+      console.log("Payment failure email sent successfully. Message ID:", info.messageId);
     } catch (e) {
-      console.error("Payment failure email send failed:", e.message);
+      console.error("Payment failure email send failed - Details:", {
+        message: e.message,
+        code: e.code,
+        to: email,
+        movieName: movieName
+      });
     }
+  } else {
+    console.warn("Payment failure email not sent. Missing credentials or email. Email:", email, "GMAIL_EMAIL:", !!process.env.GMAIL_EMAIL, "GMAIL_PASSWORD:", !!process.env.GMAIL_PASSWORD);
   }
 
   if (fullPhone.startsWith("+") && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {

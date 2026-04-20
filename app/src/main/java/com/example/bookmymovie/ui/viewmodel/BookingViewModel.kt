@@ -372,47 +372,108 @@ class BookingViewModel : ViewModel() {
             .call(data)
     }
 
-    // ── Send booking confirmation via WhatsApp (Cloud Function) ───────────────
+    // ── Send booking confirmation via WhatsApp ───────────────────────────────
     private fun sendBookingWhatsApp(booking: Booking) {
         val uid = booking.userId
-        // Fetch user's phone number from the database, then call cloud function
-        FirebaseDatabase.getInstance().getReference("users").child(uid)
-            .get().addOnSuccessListener { snapshot ->
-                val countryCode = snapshot.child("countryCode").getValue(String::class.java) ?: ""
-                val phone = snapshot.child("phone").getValue(String::class.java) ?: ""
-                val fullPhone = countryCode + phone
-
-                if (fullPhone.isNotEmpty() && fullPhone.startsWith("+")) {
+        Log.d("BookingVM_WhatsApp", "START: sendBookingWhatsApp for booking: ${booking.bookingId}")
+        
+        // Fetch user phone and send WhatsApp
+        FirebaseDatabase.getInstance().getReference("users").child(uid).get()
+            .addOnSuccessListener { snapshot ->
+                try {
+                    var countryCode = snapshot.child("countryCode").getValue(String::class.java) ?: ""
+                    val phone = snapshot.child("phone").getValue(String::class.java) ?: ""
+                    
+                    Log.d("BookingVM_WhatsApp", "STEP 1: Fetched phone - countryCode='$countryCode', phone='$phone'")
+                    
+                    // Ensure country code has "+" prefix
+                    if (countryCode.isNotEmpty() && !countryCode.startsWith("+")) {
+                        countryCode = "+$countryCode"
+                    }
+                    
+                    val fullPhone = countryCode + phone
+                    Log.d("BookingVM_WhatsApp", "STEP 2: Full phone='$fullPhone'")
+                    
+                    // Validate
+                    if (fullPhone.isEmpty() || !fullPhone.startsWith("+")) {
+                        Log.e("BookingVM_WhatsApp", "ERROR: Invalid phone - countryCode='$countryCode', phone='$phone', fullPhone='$fullPhone'")
+                        return@addOnSuccessListener
+                    }
+                    
+                    Log.d("BookingVM_WhatsApp", "STEP 3: Phone valid, calling Cloud Function")
+                    
+                    // Prepare data
                     val data = hashMapOf(
                         "phone" to fullPhone,
                         "booking" to hashMapOf(
-                            "bookingId"   to booking.bookingId,
-                            "movieName"   to booking.movieName,
-                            "cinemaName"  to booking.cinemaName,
-                            "screenName"  to booking.screenName,
-                            "screenType"  to booking.screenType,
-                            "date"        to booking.date,
-                            "time"        to booking.time,
-                            "language"    to booking.language,
-                            "seats"       to booking.seats,
+                            "bookingId" to booking.bookingId,
+                            "movieName" to booking.movieName,
+                            "cinemaName" to booking.cinemaName,
+                            "screenName" to booking.screenName,
+                            "screenType" to booking.screenType,
+                            "date" to booking.date,
+                            "time" to booking.time,
+                            "language" to booking.language,
+                            "seats" to booking.seats,
                             "discountAmount" to (booking.discountAmount + booking.cashbackAmount),
                             "discountCode" to if (booking.cashbackAmount > 0) "${booking.discountCode} (Cashback)" else booking.discountCode,
                             "cashbackAmount" to booking.cashbackAmount,
                             "totalAmount" to booking.totalAmount
                         )
                     )
+                    
+                    Log.d("BookingVM_WhatsApp", "STEP 4: Data prepared, calling Firebase Function")
+                    
+                    // Call Cloud Function
                     Firebase.functions
                         .getHttpsCallable("sendBookingWhatsApp")
                         .call(data)
-                        .addOnSuccessListener {
-                            Log.d("BookingVM", "WhatsApp booking confirmation sent")
+                        .addOnSuccessListener { result ->
+                            Log.d("BookingVM_WhatsApp", "SUCCESS: WhatsApp sent! MessageSID: $result")
                         }
                         .addOnFailureListener { e ->
-                            Log.e("BookingVM", "WhatsApp send failed: ${e.message}")
+                            Log.e("BookingVM_WhatsApp", "FAILED: Cloud Function error: ${e.message}", e)
                         }
-                } else {
-                    Log.w("BookingVM", "User has no valid phone number for WhatsApp")
+                    
+                } catch (e: Exception) {
+                    Log.e("BookingVM_WhatsApp", "Exception during WhatsApp send: ${e.message}", e)
                 }
+            }
+            .addOnFailureListener { e ->
+                Log.e("BookingVM_WhatsApp", "Failed to fetch user data: ${e.message}", e)
+            }
+    }
+    
+    // ── Send booking confirmation via WhatsApp (Direct with phone) ───────────────
+    private fun sendBookingWhatsAppDirect(booking: Booking, phone: String) {
+        Log.d("BookingVM", "sendBookingWhatsAppDirect called with phone: $phone, bookingId: ${booking.bookingId}")
+        
+        val data = hashMapOf(
+            "phone" to phone,
+            "booking" to hashMapOf(
+                "bookingId"   to booking.bookingId,
+                "movieName"   to booking.movieName,
+                "cinemaName"  to booking.cinemaName,
+                "screenName"  to booking.screenName,
+                "screenType"  to booking.screenType,
+                "date"        to booking.date,
+                "time"        to booking.time,
+                "language"    to booking.language,
+                "seats"       to booking.seats,
+                "discountAmount" to (booking.discountAmount + booking.cashbackAmount),
+                "discountCode" to if (booking.cashbackAmount > 0) "${booking.discountCode} (Cashback)" else booking.discountCode,
+                "cashbackAmount" to booking.cashbackAmount,
+                "totalAmount" to booking.totalAmount
+            )
+        )
+        Firebase.functions
+            .getHttpsCallable("sendBookingWhatsApp")
+            .call(data)
+            .addOnSuccessListener { result ->
+                Log.d("BookingVM", "WhatsApp booking confirmation sent successfully. Result: $result")
+            }
+            .addOnFailureListener { e ->
+                Log.e("BookingVM", "WhatsApp send failed: ${e.message}", e)
             }
     }
 
@@ -579,6 +640,7 @@ class BookingViewModel : ViewModel() {
 
                         sendBookingEmail(booking)
                         sendBookingWhatsApp(booking)
+                        
                         pendingPaymentIntentId = null
                         // Reset selection state
                         selectedSeats = emptySet()
